@@ -1,0 +1,562 @@
+import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+const PRIMARY = "#6D46C6";
+const MINT = "#5EEAD4";
+const CARD_BG_TOP1 = "#FEFBEA";
+const CARD_BG_TOP2 = "#F3F8FE";
+const CARD_BG_TOP3 = "#FFF6F2";
+const CARD_BG_NORMAL = "#FFFFFF";
+
+const API_KEY = 'patZS8GyNhkwoP4wY.2beddc214f4dd2a5e4c220ae654f62652a5e02a47bae2287c54fced7bb97c07e';
+const BASE_ID = 'appFUJWWTaoJ3YiWt';
+const REVIEWS_TABLE = 'tblef0n1hQXiKPHxI';
+const CIRCLES_TABLE = 'tbldL8H5T4qYKUzLV';
+
+const COMPANY_USERS = [
+  "Deepthi Rao", "Rohan Vibhuti ", "Shreya Shinde", "Gargi", "Pranali", "Vansh Desai", "Hitanshi"
+];
+
+const getPeriodStart = (period) => {
+  const now = new Date();
+  if (period === "weekly") {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+  } else if (period === "monthly") {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0);
+  } else {
+    return new Date("2024-01-01T00:00:00");
+  }
+};
+
+function isValidName(name = "") {
+  return /^[a-zA-Z][a-zA-Z\s\-'.]{1,49}$/.test(name.trim());
+}
+
+function slugify(name = "") {
+  return name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036F]/g, "")
+    .replace(/[\s]+/g, "-")
+    .replace(/[\/\\#\?\%\$\&\*\:\;\"\'\<\>\{\}\[\]\|]/g, "")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+}
+
+const rankBadges = [
+  <span key="1" className="inline-flex items-center mr-2 text-2xl">🥇</span>,
+  <span key="2" className="inline-flex items-center mr-2 text-2xl">🥈</span>,
+  <span key="3" className="inline-flex items-center mr-2 text-2xl">🥉</span>
+];
+
+function renderStars(score) {
+  if (!score || isNaN(score)) return null;
+  const n = Math.max(1, Math.min(5, Number(score)));
+  return (
+    <span className="flex gap-[1px] items-center ml-1">
+      {Array.from({ length: n }).map((_, i) => (
+        <span key={i} role="img" aria-label="star" className="text-yellow-400 text-[16px]">★</span>
+      ))}
+    </span>
+  );
+}
+
+const MARQUEE_DURATION = 1300;
+function MarqueeRow({ children, reverse = false }) {
+  const [paused, setPaused] = useState(false);
+  return (
+    <div
+      className="relative w-full flex justify-center overflow-hidden"
+      style={{
+        minHeight: 176,
+        marginBottom: 12,
+        maxWidth: "100vw"
+      }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div
+        className="flex items-center gap-5"
+        style={{
+          width: "max-content",
+          animation: `marquee-${reverse ? "rev" : "fwd"} ${MARQUEE_DURATION}s linear infinite`,
+          animationPlayState: paused ? "paused" : "running"
+        }}
+      >
+        {children}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// --- Review Card with username at bottom left, business at top ---
+function ReviewCard({ review, navigate }) {
+  if (!review) return null;
+  const nameArr = review.fields["Name_Creator"];
+  const userName = Array.isArray(nameArr) ? nameArr[0] : nameArr;
+  const business = review.fields["business_name"] || review.fields["Business"] || "";
+  const text = review.fields["Uplaud"] || review.fields["Review"] || "";
+  const avatar =
+    review.fields["Creator Image"] && Array.isArray(review.fields["Creator Image"])
+      ? review.fields["Creator Image"][0]?.url
+      : review.fields["Creator Image"]?.url || "https://avatar.vercel.sh/guest";
+  const score = review.fields["Uplaud Score"] || review.fields["Score"] || review.fields["Rating"];
+
+  const handleLike = (e) => {
+    e.stopPropagation();
+    navigate('/login');
+  };
+
+  return (
+    <figure
+      className="relative h-full w-72 sm:w-80 cursor-pointer overflow-hidden rounded-xl border p-5 bg-white/90 hover:shadow-lg hover:scale-[1.03] transition-all"
+      style={{
+        minWidth: 265,
+        maxWidth: 320,
+        margin: "0 8px",
+        border: `2px solid ${MINT}`,
+        boxShadow: "0 2px 20px 0 #e2f6f555"
+      }}
+      onClick={() => navigate(`/profile/${slugify(userName)}`)}
+      draggable={false}
+    >
+      {/* Business name BIG at top */}
+      <div className="flex items-center gap-3 mb-2">
+        <img className="rounded-full shadow-lg" width="38" height="38" alt={business} src={avatar} />
+        <figcaption
+          className="font-extrabold text-lg bg-gradient-to-r from-[#6D46C6] via-[#5EEAD4] to-[#24b67e] bg-clip-text text-transparent flex items-center"
+          style={{
+            letterSpacing: "0.5px",
+            textShadow: "0 1px 5px #e8e0ff60,0 2px 8px #a7e9da50"
+          }}
+        >
+          {business}
+          {renderStars(score)}
+        </figcaption>
+      </div>
+      {/* Review text */}
+      <blockquote className="mt-1 text-[15px] text-gray-800 font-medium leading-tight min-h-[45px]">
+        {text.length > 130 ? (
+          <>
+            {text.slice(0, 130)}...
+            <span className="font-semibold text-xs text-[#6D46C6]"> more</span>
+          </>
+        ) : (
+          text
+        )}
+      </blockquote>
+      {/* Username bottom left, like bottom right */}
+      <div className="absolute left-5 bottom-3 flex items-center gap-2">
+        <span className="text-xs font-bold text-[#1b9061]">{userName}</span>
+      </div>
+      <button
+        className="absolute bottom-3 right-3 bg-white/80 rounded-full p-2 border border-gray-200 shadow-sm flex items-center justify-center transition hover:scale-110 active:scale-95"
+        style={{
+          boxShadow: "0 1px 6px 0 #d7e7e7cc",
+          zIndex: 10
+        }}
+        onClick={handleLike}
+        tabIndex={0}
+        aria-label="Like this review (requires login)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M5.68 12.17l6.37 6.36a1 1 0 001.42 0l6.37-6.36A4.51 4.51 0 0012 7.5a4.51 4.51 0 00-6.32 4.67z"
+          />
+        </svg>
+      </button>
+    </figure>
+  );
+}
+
+const Leaderboard = () => {
+  const [topUsers, setTopUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const defaultPeriod = () => localStorage.getItem("leaderboardPeriod") || "weekly";
+  const [period, setPeriod] = useState(defaultPeriod());
+  const navigate = useNavigate();
+  const intervalRef = useRef(null);
+
+  const [spotlightReviews, setSpotlightReviews] = useState([]);
+
+  // Airtable fetch helpers
+  const fetchAllAirtableReviews = async () => {
+    let allRecords = [];
+    let offset = undefined;
+    try {
+      do {
+        const params = { pageSize: 100 };
+        if (offset) params.offset = offset;
+        const resp = await axios.get(
+          `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
+          { headers: { Authorization: `Bearer ${API_KEY}` }, params }
+        );
+        allRecords = allRecords.concat(resp.data.records);
+        offset = resp.data.offset;
+      } while (offset);
+      return allRecords;
+    } catch (e) {
+      return [];
+    }
+  };
+
+  const fetchAllAirtableCircles = async () => {
+    let allRecords = [];
+    let offset = undefined;
+    try {
+      do {
+        const params = { pageSize: 100 };
+        if (offset) params.offset = offset;
+        const resp = await axios.get(
+          `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
+          { headers: { Authorization: `Bearer ${API_KEY}` }, params }
+        );
+        allRecords = allRecords.concat(resp.data.records);
+        offset = resp.data.offset;
+      } while (offset);
+      return allRecords;
+    } catch (e) {
+      return [];
+    }
+  };
+
+  // Fetch Community Spotlight Reviews
+  useEffect(() => {
+    const fetchSpotlightReviews = async () => {
+      const all = await fetchAllAirtableReviews();
+      const now = new Date();
+      let filtered = all.filter(r => {
+        const nameArr = r.fields["Name_Creator"];
+        const name = Array.isArray(nameArr) ? nameArr[0] : nameArr;
+        const business = r.fields["business_name"] || r.fields["Business"] || "";
+        const text = r.fields["Uplaud"] || r.fields["Review"] || "";
+        const dateStr = r.fields["Date_Added"];
+        const date = dateStr ? new Date(dateStr) : null;
+        return (
+          name &&
+          business &&
+          date &&
+          date >= new Date("2024-01-01T00:00:00") &&
+          date <= now &&
+          !COMPANY_USERS.map(u => u.toLowerCase()).includes((name || "").toLowerCase()) &&
+          isValidName(name) &&
+          text.length > 4
+        );
+      });
+      filtered = filtered.sort((a, b) => new Date(b.fields["Date_Added"]) - new Date(a.fields["Date_Added"]));
+      setSpotlightReviews(filtered);
+    };
+    fetchSpotlightReviews();
+    // eslint-disable-next-line
+  }, []);
+
+  // Leaderboard logic (unchanged)
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [reviews, circles] = await Promise.all([
+        fetchAllAirtableReviews(),
+        fetchAllAirtableCircles()
+      ]);
+      const startDate = getPeriodStart(period);
+
+      const userMap = {};
+      const reviewedUserIds = new Set();
+
+      reviews.forEach((r) => {
+        const idArr = r.fields["ID (from Creator)"];
+        const nameArr = r.fields["Name_Creator"];
+        const dateStr = r.fields["Date_Added"];
+        const id = Array.isArray(idArr) ? idArr[0] : idArr;
+        const name = Array.isArray(nameArr) ? nameArr[0] : nameArr;
+        const reviewDate = dateStr ? new Date(dateStr) : null;
+
+        if (
+          typeof id === "number" &&
+          typeof name === "string" &&
+          reviewDate &&
+          reviewDate >= startDate &&
+          !COMPANY_USERS.map(u => u.toLowerCase()).includes(name.toLowerCase()) &&
+          isValidName(name)
+        ) {
+          reviewedUserIds.add(id);
+          if (!userMap[id]) {
+            userMap[id] = {
+              creatorId: id,
+              creatorName: name,
+              reviewCount: 1,
+              referralCount: 0,
+              points: 0,
+              latestDate: reviewDate,
+            };
+          } else {
+            userMap[id].reviewCount += 1;
+            if (reviewDate > userMap[id].latestDate) {
+              userMap[id].latestDate = reviewDate;
+            }
+          }
+        }
+      });
+
+      circles.forEach((rec) => {
+        const initiator = rec.fields["Initiator"];
+        const receiver = rec.fields["Receiver"];
+        if (
+          typeof initiator === "number" &&
+          typeof receiver === "number" &&
+          reviewedUserIds.has(receiver)
+        ) {
+          if (!userMap[initiator]) {
+            userMap[initiator] = {
+              creatorId: initiator,
+              creatorName: `User ${initiator}`,
+              reviewCount: 0,
+              referralCount: 1,
+              points: 0,
+              latestDate: new Date("2024-01-01T00:00:00"),
+            };
+          } else {
+            userMap[initiator].referralCount += 1;
+          }
+        }
+      });
+
+      Object.values(userMap).forEach(user => {
+        user.points = (user.reviewCount * 10) + (user.referralCount * 20);
+      });
+
+      const sorted = Object.values(userMap).sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
+        return b.latestDate.getTime() - a.latestDate.getTime();
+      });
+
+      setTopUsers(sorted.slice(0, 5));
+    } catch (err) {
+      setTopUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    intervalRef.current = setInterval(() => {
+      fetchData();
+    }, 60000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+    // eslint-disable-next-line
+  }, [period]);
+
+  const handlePeriodChange = (key) => {
+    setPeriod(key);
+    localStorage.setItem("leaderboardPeriod", key);
+  };
+
+  const periodTabs = [
+    { key: "weekly", label: "This Week" },
+    { key: "monthly", label: "Monthly" },
+    { key: "all-time", label: "All Time" },
+  ];
+
+  const renderUserRows = (users) => {
+    if (loading) {
+      return <div className="text-center text-gray-400">Loading...</div>;
+    }
+    if (!users || users.length === 0) {
+      return <div className="text-center text-gray-400">No reviewers found.</div>;
+    }
+    return users.map((user, idx) => (
+      <div
+        key={user.creatorId}
+        className={`
+          flex flex-col sm:flex-row items-center justify-between px-4 sm:px-10 py-4 sm:py-6 mb-4 rounded-2xl shadow-lg border border-gray-100
+          transition-transform hover:-translate-y-1 group glass-bg
+        `}
+        onClick={() => navigate(`/profile/${slugify(user.creatorName)}`)}
+        style={{
+          minHeight: 68,
+          maxWidth: "100%",
+          cursor: "pointer",
+          background:
+            idx === 0 ? CARD_BG_TOP1
+              : idx === 1 ? CARD_BG_TOP2
+              : idx === 2 ? CARD_BG_TOP3
+              : CARD_BG_NORMAL,
+          border: idx === 0 ? `2.5px solid ${MINT}` : "1.5px solid #F1ECFF"
+        }}
+      >
+        <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-start">
+          <span className="text-2xl" style={{ filter: idx <= 2 ? "drop-shadow(0 2px 3px #eee)" : undefined }}>
+            {rankBadges[idx] || <span className="text-xl font-bold text-purple-200">{`#${idx + 1}`}</span>}
+          </span>
+          <span className="font-bold text-lg text-gray-900 group-hover:text-purple-700 transition">{user.creatorName}</span>
+        </div>
+        <div className="flex flex-col items-center sm:items-end min-w-[95px]">
+          <span className="font-bold text-[20px] sm:text-[22px] text-[#6D46C6]">{user.points} pts</span>
+        </div>
+      </div>
+    ));
+  };
+
+  // Split reviews for two rows (all reviews, no unique business filter)
+  const row1 = spotlightReviews.filter((_, i) => i % 2 === 0);
+  const row2 = spotlightReviews.filter((_, i) => i % 2 === 1);
+
+  return (
+    <div className="min-h-screen w-full relative flex flex-col items-center justify-center bg-white">
+      <div className="relative z-10 py-8 sm:py-10 w-full max-w-6xl mx-auto px-2 sm:px-0">
+        <button
+          onClick={() => navigate("/")}
+          className="mb-6 sm:mb-8 px-4 sm:px-5 py-2 bg-white/90 text-[#6D46C6] font-bold rounded-lg hover:bg-[#5EEAD4]/30 shadow border border-[#5EEAD4] flex items-center gap-2 transition backdrop-blur"
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke={PRIMARY} strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back
+        </button>
+
+        {/* --- Top Reviewers Section --- */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between px-1 sm:px-2 mb-6 sm:mb-8">
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-[#6D46C6] tracking-tight mb-4 md:mb-0"
+            style={{ textShadow: "0 1px 12px #e8e0ff50" }}>
+            <span role="img" aria-label="trophy">🏆</span> Top Reviewers{" "}
+            <span className="font-light text-[#5EEAD4]">
+              {period === "weekly" ? "This Week" : period === "monthly" ? "Monthly" : "All Time"}
+            </span>
+          </h2>
+          <div className="flex gap-2">
+            {periodTabs.map((tab) => (
+              <button
+                key={tab.key}
+                className={`px-3 sm:px-4 py-1 rounded-full font-semibold transition ${
+                  period === tab.key
+                    ? "bg-[#5EEAD4] text-[#6D46C6] border-2 border-[#6D46C6] scale-105"
+                    : "text-gray-600 border-2 border-[#5EEAD4]"
+                }`}
+                onClick={() => handlePeriodChange(tab.key)}
+                style={{
+                  fontWeight: period === tab.key ? 700 : 500,
+                  fontFamily: "Poppins, sans-serif"
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Glassmorphic Card Container */}
+        <div className="w-full glass-bg p-5 sm:p-10 rounded-3xl shadow-2xl mb-8 sm:mb-12"
+          style={{ maxWidth: 1100, margin: "0 auto", background: "rgba(255,255,255,0.85)", backdropFilter: "blur(10px)" }}>
+          {renderUserRows(topUsers)}
+        </div>
+
+        {/* Modern Wavy Divider */}
+        <div className="w-full overflow-hidden mt-10 sm:mt-16 mb-4 z-20 relative" style={{ maxWidth: "100%", margin: "0 auto" }}>
+          <svg viewBox="0 0 1440 70" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path fill={MINT} d="M0,45L1440,16L1440,320L0,320Z" />
+          </svg>
+        </div>
+
+        {/* --- COMMUNITY SPOTLIGHT (centered marquee, no border/gradient) --- */}
+        <div
+          className="flex flex-col items-center justify-center py-10 sm:py-14 px-1 sm:px-2 z-10 w-full"
+          style={{
+            margin: "0 auto",
+            maxWidth: "100vw",
+            background: "none",
+            borderRadius: "0",
+            boxShadow: "none",
+            overflow: "visible"
+          }}
+        >
+          <h3 className="text-xl sm:text-3xl font-extrabold mb-7 sm:mb-10 text-center tracking-tight" style={{ color: PRIMARY }}>
+            Community Spotlight
+          </h3>
+          {/* Marquee Rows */}
+          <div className="w-full flex flex-col gap-4 sm:gap-6 items-center">
+            <MarqueeRow>
+              {row1.map((r) => (
+                <ReviewCard review={r} key={r.id + "-row1"} navigate={navigate} />
+              ))}
+            </MarqueeRow>
+            <MarqueeRow reverse>
+              {row2.map((r) => (
+                <ReviewCard review={r} key={r.id + "-row2"} navigate={navigate} />
+              ))}
+            </MarqueeRow>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA: Full screen, purple background */}
+      <div
+        className="w-full flex flex-col items-center justify-center"
+        style={{
+          minHeight: "44vh",
+          width: "100vw",
+          background: PRIMARY,
+          color: "#CBC3E3",
+          marginTop: 36,
+          padding: "42px 0 42px 0"
+        }}
+      >
+        <h3 className="text-xl sm:text-3xl font-extrabold flex items-center justify-center gap-2 mb-4 text-white" style={{ letterSpacing: ".5px" }}>
+          🚀 Want to start reviewing too?
+        </h3>
+        <p className="text-base sm:text-lg mb-5 sm:mb-6 text-white/90 text-center max-w-xs sm:max-w-2xl font-medium">
+          Join our community of reviewers and share your experiences with others.<br />
+          It's as easy as sending a WhatsApp message!
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 flex-wrap justify-center mb-3 w-full px-4">
+          <a
+            href="https://api.whatsapp.com/message/XVZR77KDFQMHI1"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-[#5EEAD4] hover:bg-[#b2ffe0] text-[#6D46C6] px-8 py-3 rounded-full text-lg font-bold transition shadow text-center"
+            style={{ minWidth: 170 }}
+          >
+            🚀 Try Uplaud
+          </a>
+          <button
+            onClick={() => navigate('/login')}
+            className="px-8 py-3 border-2 border-white text-white rounded-full text-lg font-bold hover:bg-[#5EEAD4]/20 transition text-center"
+            style={{ minWidth: 170 }}
+          >
+            Login
+          </button>
+        </div>
+        <p className="text-white/60 text-sm mt-2 text-center w-full px-3">
+          No app download required — start reviewing in seconds.
+        </p>
+      </div>
+
+      {/* Keyframes for blobs & marquee */}
+      <style>{`
+        @keyframes marquee-fwd {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes marquee-rev {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+        .glass-bg {
+          background: rgba(255,255,255,0.7);
+          backdrop-filter: blur(13px) saturate(1.13);
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default Leaderboard;

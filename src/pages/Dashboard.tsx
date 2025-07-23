@@ -1,175 +1,204 @@
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogOut, User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import { useUserProfile } from '@/hooks/useUserProfile';
+import { BackButton } from '@/components/BackButton';
+
+import {
+  Star, Users, ClipboardList, Trophy, Zap, MapPin, Calendar, Edit, Sun, Moon
+} from 'lucide-react';
+import { Bar, Pie } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+  ArcElement
+} from 'chart.js';
+
+ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, ArcElement);
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { user, signOut, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading } = useUserProfile();
+  const [userName, setUserName] = useState(localStorage.getItem('user_name') || 'Sarah Johnson');
+  const [userPhone, setUserPhone] = useState(localStorage.getItem('user_phone') || '+1XXXXXXXXXX');
+  const [joinDate] = useState(localStorage.getItem('join_date') || new Date().toISOString());
+  const formattedJoinDate = new Date(joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const referralCode = `UPLAUD${userPhone.slice(-4)}`;
+  const [activeTab, setActiveTab] = useState('Overview');
+  const [darkMode, setDarkMode] = useState(false);
+  const [editingSettings, setEditingSettings] = useState(false);
 
-  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login');
-    }
-  }, [user, authLoading, navigate]);
+    const token = localStorage.getItem('auth_token');
+    if (!token) navigate('/login');
+  }, [navigate]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of your Uplaud account.",
-      });
-      navigate('/');
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to log out. Please try again.",
-        variant: "destructive"
-      });
-    }
+  const barData = {
+    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+    datasets: [{
+      label: 'Reviews',
+      data: [10, 20, 15, 30, 25],
+      backgroundColor: '#a855f7',
+    }],
   };
 
-  // Show loading state
-  if (authLoading || profileLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#6214a8] to-[#4c0e7a] flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
-      </div>
-    );
-  }
+  const pieData = {
+    labels: ['Positive', 'Neutral', 'Negative'],
+    datasets: [{
+      data: [70, 20, 10],
+      backgroundColor: ['#22c55e', '#facc15', '#ef4444'],
+    }],
+  };
 
-  // Don't render anything if user is not authenticated (will redirect)
-  if (!user || !profile) {
-    return null;
-  }
+  const saveSettings = () => {
+    localStorage.setItem('user_name', userName);
+    localStorage.setItem('user_phone', userPhone);
+    setEditingSettings(false);
+  };
 
-  // Calculate some stats (placeholder for now)
-  const reviewsSubmitted = 0; // This would come from a reviews table in the future
+  const bgColor = darkMode ? 'bg-[#0f172a]' : 'bg-[#f9f6ff]';
+  const textColor = darkMode ? 'text-white' : 'text-gray-800';
+  const cardColor = darkMode ? 'bg-[#1e293b]' : 'bg-white';
+  const secondaryTextColor = darkMode ? 'text-gray-300' : 'text-gray-600';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#6214a8] to-[#4c0e7a] px-4 py-8">
-      <div className="container max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 space-y-4 md:space-y-0">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-              My Dashboard
-            </h1>
-            <p className="text-xl text-[#5EEAD4]">
-              Welcome back, {profile.full_name}!
-            </p>
+    <div className={`min-h-screen ${bgColor} px-6 py-10 font-sans ${textColor} relative`}>
+      <BackButton to="/" label="Back to Home" className="absolute top-6 left-6 z-10" />
+      <button
+        onClick={() => setDarkMode(!darkMode)}
+        className="absolute top-6 right-6 bg-gray-200 dark:bg-gray-800 text-sm px-4 py-1 rounded-full"
+      >
+        {darkMode ? <Sun size={16} /> : <Moon size={16} />} {darkMode ? 'Light' : 'Dark'}
+      </button>
+
+      <div className="max-w-5xl mx-auto space-y-8">
+        <div className={`${cardColor} shadow-lg rounded-2xl p-6 flex items-center gap-6`}>
+          <div className="relative w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-2xl font-bold text-purple-700">
+            {userName.split(' ').map(n => n[0]).join('')}
+            <button className="absolute bottom-0 right-0 p-1 bg-purple-600 rounded-full text-white hover:bg-purple-700">
+              <Edit size={14} />
+            </button>
           </div>
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            className="border-[#5EEAD4] text-[#5EEAD4] hover:bg-[#5EEAD4]/10 flex items-center gap-2"
-          >
-            <LogOut size={16} />
-            Log Out
-          </Button>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              {userName} <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1">@sarahfoodie</span>
+            </h2>
+            <p className={`text-sm flex items-center gap-2 ${secondaryTextColor}`}>
+              <Calendar size={16} /> Joined {formattedJoinDate}
+              <MapPin size={16} /> Austin, TX
+            </p>
+            <p className={`text-sm mt-2 ${secondaryTextColor}`}>Food enthusiast and local business advocate. Always hunting for Austin's hidden gems 🌮✨</p>
+          </div>
         </div>
 
-        {/* Dashboard Content */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Reviews Summary Card */}
-          <Card className="shadow-xl border-0">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-slate-900 text-lg">
-                Reviews Submitted
-              </CardTitle>
-              <CardDescription className="text-slate-600">
-                Your contribution to the community
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#6214a8] mb-2">
-                {reviewsSubmitted}
-              </div>
-              <p className="text-sm text-slate-600">
-                Thank you for helping others make better decisions!
-              </p>
-            </CardContent>
-          </Card>
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <StatBox icon={<Users />} label="Followers" value="0" color="blue" />
+          <StatBox icon={<Users />} label="Following" value="0" color="green" />
+          <StatBox icon={<Star />} label="Reviews" value="0" color="yellow" />
+          <StatBox icon={<Zap />} label="XP Score" value="0" color="purple" />
+          <StatBox icon={<ClipboardList />} label="Referrals" value="0" color="pink" />
+        </div>
 
-          {/* Account Info Card */}
-          <Card className="shadow-xl border-0 md:col-span-2 lg:col-span-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-slate-900 text-lg flex items-center gap-2">
-                <User size={20} />
-                Account Information
-              </CardTitle>
-              <CardDescription className="text-slate-600">
-                Your registered details
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700 block mb-1">
-                    Full Name
-                  </label>
-                  <p className="text-slate-900 bg-slate-50 p-3 rounded-md">
-                    {profile.full_name}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700 block mb-1">
-                    WhatsApp Phone Number
-                  </label>
-                  <p className="text-slate-900 bg-slate-50 p-3 rounded-md">
-                    {profile.phone_number}
-                  </p>
-                </div>
+        {/* Tabs */}
+        <div className={`${cardColor} rounded-2xl shadow p-4`}>
+          <div className="flex gap-6 border-b mb-4 text-sm">
+            {['Overview', 'Reviews', 'Analytics', 'Settings'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-2 ${activeTab === tab ? 'border-b-2 border-purple-600 text-purple-600 font-semibold' : 'text-gray-500 hover:text-purple-600'}`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'Overview' && (
+            <div>
+              <h3 className="text-lg font-semibold mb-2">🥇 Achievements</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="bg-green-600 text-white p-4 rounded-xl text-center">🎯 First Review</div>
+                <div className="bg-yellow-600 text-white p-4 rounded-xl text-center">👑 Top Reviewer</div>
+                <div className="bg-purple-600 text-white p-4 rounded-xl text-center">💬 Community Contributor</div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Reviews' && (
+            <div>
+              <h3 className="text-lg font-semibold mb-2">📄 Your Reviews</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Trailblazer Travels – "Great experience!"</li>
+                <li>SweetSpot Cafe – "Lovely ambiance and food!"</li>
+                <li>Elite Fitness Gym – "Very clean and modern."</li>
+              </ul>
+            </div>
+          )}
+
+          {activeTab === 'Analytics' && (
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-sm mb-1">Monthly Reviews</h4>
+                <Bar data={barData} />
               </div>
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">
-                  Email Address
-                </label>
-                <p className="text-slate-900 bg-slate-50 p-3 rounded-md">
-                  {profile.email}
-                </p>
+                <h4 className="text-sm mb-1">Sentiment Distribution</h4>
+                <Pie data={pieData} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
 
-          {/* Quick Actions Card */}
-          <Card className="shadow-xl border-0 md:col-span-2 lg:col-span-3">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-slate-900 text-lg">
-                Quick Actions
-              </CardTitle>
-              <CardDescription className="text-slate-600">
-                Manage your account and reviews
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Button className="bg-[#6214a8] hover:bg-[#4c0e7a] text-white font-medium">
-                  Submit New Review
-                </Button>
-                <Button variant="outline" className="border-[#6214a8] text-[#6214a8] hover:bg-[#6214a8]/10">
-                  View My Reviews
-                </Button>
-                <Button variant="outline" className="border-[#6214a8] text-[#6214a8] hover:bg-[#6214a8]/10">
-                  Edit Profile
-                </Button>
-                <Button variant="outline" className="border-[#6214a8] text-[#6214a8] hover:bg-[#6214a8]/10">
-                  Settings
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {activeTab === 'Settings' && (
+            <div className="space-y-4">
+              {editingSettings ? (
+                <>
+                  <input
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    placeholder="Name"
+                  />
+                  <input
+                    value={userPhone}
+                    onChange={(e) => setUserPhone(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    placeholder="Phone"
+                  />
+                  <button
+                    onClick={saveSettings}
+                    className="bg-green-500 text-white px-4 py-2 rounded"
+                  >Save</button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setEditingSettings(true)}
+                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                >Edit Profile</button>
+              )}
+            </div>
+          )}
         </div>
       </div>
+    </div>
+  );
+};
+
+const StatBox = ({ icon, label, value, color }) => {
+  const bg = {
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    yellow: 'bg-yellow-100 text-yellow-600',
+    purple: 'bg-purple-100 text-purple-600',
+    pink: 'bg-pink-100 text-pink-600',
+  }[color];
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 text-center">
+      <div className={`w-10 h-10 mx-auto flex items-center justify-center rounded-full ${bg}`}>{icon}</div>
+      <div className="text-xl font-bold mt-2 text-gray-800 dark:text-white">{value}</div>
+      <p className="text-sm text-gray-500 dark:text-gray-300">{label}</p>
     </div>
   );
 };

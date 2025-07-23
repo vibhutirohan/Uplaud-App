@@ -1,172 +1,110 @@
-
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
+import { MessageCircle, Smartphone, ArrowLeft } from 'lucide-react';
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const { toast } = useToast();
-  const { signIn, user } = useAuth();
+  const navigate = useNavigate();
 
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
-    }
-  }, [user, navigate]);
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        newErrors.email = 'Please enter a valid email address';
-      }
-    }
-
-    if (!formData.password.trim()) {
-      newErrors.password = 'Password is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
+  const handleSendOtp = () => {
+    if (!phoneNumber || phoneNumber.length < 10) {
+      toast({
+        title: 'Invalid number',
+        description: 'Enter a valid WhatsApp number',
+        variant: 'destructive',
+      });
       return;
     }
 
-    setIsLoading(true);
-    
-    try {
-      const { error } = await signIn(formData.email, formData.password);
-      
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          setErrors({ submit: 'Invalid email or password' });
-        } else {
-          setErrors({ submit: error.message });
-        }
-      } else {
-        toast({
-          title: "Login Successful!",
-          description: "Welcome back to Uplaud.",
-        });
-        navigate('/dashboard');
-      }
-    } catch (error) {
-      setErrors({ submit: 'An unexpected error occurred' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    sessionStorage.setItem('mock_otp', mockOtp);
+    sessionStorage.setItem('otp_phone', phoneNumber);
+    toast({
+      title: 'OTP Sent!',
+      description: `Mock OTP: ${mockOtp}`,
+    });
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    setOtpSent(true);
+    setTimeout(() => navigate('/verify-otp'), 1000);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#6214a8] to-[#4c0e7a] flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        <Card className="shadow-2xl border-0">
-          <CardHeader className="space-y-1 text-center pb-6">
-            <div className="flex justify-center mb-4">
-              <img 
-                src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png" 
-                alt="Uplaud Logo" 
-                className="h-12 w-auto"
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#6e1bd4] via-[#6214a8] to-[#4c0e7a] px-4 py-8 relative font-sans">
+      {/* Back Button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="absolute top-4 left-4 text-white flex items-center gap-1 hover:underline"
+      >
+        <ArrowLeft size={16} /> Back
+      </button>
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl p-8 space-y-6">
+          <div className="flex flex-col items-center space-y-2">
+            <div className="bg-green-100 rounded-full p-4">
+              <MessageCircle className="text-green-600 w-6 h-6" />
+            </div>
+            <h1 className="text-xl font-semibold text-gray-800">Get OTP via WhatsApp</h1>
+            <p className="text-sm text-gray-500 text-center">
+              Enter your WhatsApp number below to get a secure OTP.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="phone" className="text-sm font-medium text-gray-700 mb-1 block">
+              WhatsApp Number
+            </label>
+            <div className="relative">
+              <Smartphone className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+1 (555) 123-4567"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                className="pl-10 pr-4 py-2 text-gray-800 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
             </div>
-            <CardTitle className="text-2xl font-bold text-slate-900">
-              Welcome Back
-            </CardTitle>
-            <CardDescription className="text-slate-600">
-              Login to your Uplaud account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 font-medium">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange('email', e.target.value)}
-                  className={`${errors.email ? 'border-red-500' : 'border-slate-300'} focus:border-[#6214a8]`}
-                />
-                {errors.email && (
-                  <p className="text-red-500 text-sm">{errors.email}</p>
-                )}
-              </div>
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-700 font-medium">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                  className={`${errors.password ? 'border-red-500' : 'border-slate-300'} focus:border-[#6214a8]`}
-                />
-                {errors.password && (
-                  <p className="text-red-500 text-sm">{errors.password}</p>
-                )}
-              </div>
+          <Button
+            onClick={handleSendOtp}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 rounded-lg transition duration-200"
+          >
+            {otpSent ? 'Sending OTP...' : 'Send OTP'}
+          </Button>
 
-              {errors.submit && (
-                <p className="text-red-500 text-sm">{errors.submit}</p>
-              )}
-
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-[#6214a8] hover:bg-[#4c0e7a] text-white font-medium py-2.5 mt-6"
-              >
-                {isLoading ? 'Logging in...' : 'Login'}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-slate-600">
-                Don't have an account?{' '}
-                <Link 
-                  to="/register" 
-                  className="text-[#6214a8] hover:text-[#4c0e7a] font-medium"
-                >
-                  Register here
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+          <p className="text-xs text-gray-500 text-center">
+            By continuing, you agree to our{' '}
+            <a
+              href="https://www.uplaud.ai/terms-of-service"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              Terms
+            </a>{' '}
+            and{' '}
+            <a
+              href="https://www.uplaud.ai/privacy-policy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              Privacy Policy
+            </a>.
+          </p>
+        </div>
       </div>
+
+      {/* Glow background effects */}
+      <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl animate-pulse" />
+      <div className="absolute bottom-10 right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl animate-pulse delay-1000" />
     </div>
   );
 };

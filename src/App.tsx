@@ -9,9 +9,15 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
-import Register from "./pages/Register";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
+import VerifyOtp from './pages/VerifyOtp'; // adjust path if needed
+import Dashboard from './pages/Dashboard';
+import Leaderboard from "@/pages/ReviewerList";
+import ProfilePage from "@/pages/ProfilePage";
+import ReviewerList from './pages/ReviewerList';
+import BusinessPage from "./pages/BusinessPage";
+
+
 
 const queryClient = new QueryClient();
 
@@ -24,12 +30,19 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/" element={<ReviewerList />} />
+            <Route path="/profile/:id" element={<ProfilePage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/verify-otp" element={<VerifyOtp />} />
+            <Route path="/leaderboard" element={<Leaderboard />} /> 
+            <Route path="/business/:slug" element={<BusinessPage />} />
+
+            
+<Route path="/profile/:id" element={<ProfilePage />} />
+          
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
