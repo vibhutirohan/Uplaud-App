@@ -18,21 +18,9 @@ const COMPANY_USERS = [
   "Deepthi Rao", "Rohan Vibhuti ", "Shreya Shinde", "Gargi", "Pranali", "Vansh Desai", "Hitanshi"
 ];
 
-const getPeriodStart = (period) => {
-  const now = new Date();
-  if (period === "weekly") {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
-  } else if (period === "monthly") {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0);
-  } else {
-    return new Date("2024-01-01T00:00:00");
-  }
-};
-
 function isValidName(name = "") {
   return /^[a-zA-Z][a-zA-Z\s\-'.]{1,49}$/.test(name.trim());
 }
-
 function slugify(name = "") {
   return name
     .normalize("NFKD")
@@ -42,135 +30,13 @@ function slugify(name = "") {
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
 }
-
 const rankBadges = [
   <span key="1" className="inline-flex items-center mr-2 text-2xl">🥇</span>,
   <span key="2" className="inline-flex items-center mr-2 text-2xl">🥈</span>,
   <span key="3" className="inline-flex items-center mr-2 text-2xl">🥉</span>
 ];
 
-function renderStars(score) {
-  if (!score || isNaN(score)) return null;
-  const n = Math.max(1, Math.min(5, Number(score)));
-  return (
-    <span className="flex gap-[1px] items-center ml-1">
-      {Array.from({ length: n }).map((_, i) => (
-        <span key={i} role="img" aria-label="star" className="text-yellow-400 text-[16px]">★</span>
-      ))}
-    </span>
-  );
-}
-
-const MARQUEE_DURATION = 1300;
-function MarqueeRow({ children, reverse = false }) {
-  const [paused, setPaused] = useState(false);
-  return (
-    <div
-      className="relative w-full flex justify-center overflow-hidden"
-      style={{
-        minHeight: 176,
-        marginBottom: 12,
-        maxWidth: "100vw"
-      }}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      <div
-        className="flex items-center gap-5"
-        style={{
-          width: "max-content",
-          animation: `marquee-${reverse ? "rev" : "fwd"} ${MARQUEE_DURATION}s linear infinite`,
-          animationPlayState: paused ? "paused" : "running"
-        }}
-      >
-        {children}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// --- Review Card with username at bottom left, business at top ---
-function ReviewCard({ review, navigate }) {
-  if (!review) return null;
-  const nameArr = review.fields["Name_Creator"];
-  const userName = Array.isArray(nameArr) ? nameArr[0] : nameArr;
-  const business = review.fields["business_name"] || review.fields["Business"] || "";
-  const text = review.fields["Uplaud"] || review.fields["Review"] || "";
-  const avatar =
-    review.fields["Creator Image"] && Array.isArray(review.fields["Creator Image"])
-      ? review.fields["Creator Image"][0]?.url
-      : review.fields["Creator Image"]?.url || "https://avatar.vercel.sh/guest";
-  const score = review.fields["Uplaud Score"] || review.fields["Score"] || review.fields["Rating"];
-
-  const handleLike = (e) => {
-    e.stopPropagation();
-    navigate('/login');
-  };
-
-  return (
-    <figure
-      className="relative h-full w-72 sm:w-80 cursor-pointer overflow-hidden rounded-xl border p-5 bg-white/90 hover:shadow-lg hover:scale-[1.03] transition-all"
-      style={{
-        minWidth: 265,
-        maxWidth: 320,
-        margin: "0 8px",
-        border: `2px solid ${MINT}`,
-        boxShadow: "0 2px 20px 0 #e2f6f555"
-      }}
-      onClick={() => navigate(`/profile/${slugify(userName)}`)}
-      draggable={false}
-    >
-      {/* Business name BIG at top */}
-      <div className="flex items-center gap-3 mb-2">
-        <img className="rounded-full shadow-lg" width="38" height="38" alt={business} src={avatar} />
-        <figcaption
-          className="font-extrabold text-lg bg-gradient-to-r from-[#6D46C6] via-[#5EEAD4] to-[#24b67e] bg-clip-text text-transparent flex items-center"
-          style={{
-            letterSpacing: "0.5px",
-            textShadow: "0 1px 5px #e8e0ff60,0 2px 8px #a7e9da50"
-          }}
-        >
-          {business}
-          {renderStars(score)}
-        </figcaption>
-      </div>
-      {/* Review text */}
-      <blockquote className="mt-1 text-[15px] text-gray-800 font-medium leading-tight min-h-[45px]">
-        {text.length > 130 ? (
-          <>
-            {text.slice(0, 130)}...
-            <span className="font-semibold text-xs text-[#6D46C6]"> more</span>
-          </>
-        ) : (
-          text
-        )}
-      </blockquote>
-      {/* Username bottom left, like bottom right */}
-      <div className="absolute left-5 bottom-3 flex items-center gap-2">
-        <span className="text-xs font-bold text-[#1b9061]">{userName}</span>
-      </div>
-      <button
-        className="absolute bottom-3 right-3 bg-white/80 rounded-full p-2 border border-gray-200 shadow-sm flex items-center justify-center transition hover:scale-110 active:scale-95"
-        style={{
-          boxShadow: "0 1px 6px 0 #d7e7e7cc",
-          zIndex: 10
-        }}
-        onClick={handleLike}
-        tabIndex={0}
-        aria-label="Like this review (requires login)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5.68 12.17l6.37 6.36a1 1 0 001.42 0l6.37-6.36A4.51 4.51 0 0012 7.5a4.51 4.51 0 00-6.32 4.67z"
-          />
-        </svg>
-      </button>
-    </figure>
-  );
-}
+const MARQUEE_DURATION = 350;
 
 const Leaderboard = () => {
   const [topUsers, setTopUsers] = useState([]);
@@ -180,9 +46,7 @@ const Leaderboard = () => {
   const navigate = useNavigate();
   const intervalRef = useRef(null);
 
-  const [spotlightReviews, setSpotlightReviews] = useState([]);
-
-  // Airtable fetch helpers
+  // --- Airtable fetch helpers (no changes) ---
   const fetchAllAirtableReviews = async () => {
     let allRecords = [];
     let offset = undefined;
@@ -202,7 +66,6 @@ const Leaderboard = () => {
       return [];
     }
   };
-
   const fetchAllAirtableCircles = async () => {
     let allRecords = [];
     let offset = undefined;
@@ -223,37 +86,21 @@ const Leaderboard = () => {
     }
   };
 
-  // Fetch Community Spotlight Reviews
+  // --- Top Reviewers Logic (no changes) ---
   useEffect(() => {
-    const fetchSpotlightReviews = async () => {
-      const all = await fetchAllAirtableReviews();
-      const now = new Date();
-      let filtered = all.filter(r => {
-        const nameArr = r.fields["Name_Creator"];
-        const name = Array.isArray(nameArr) ? nameArr[0] : nameArr;
-        const business = r.fields["business_name"] || r.fields["Business"] || "";
-        const text = r.fields["Uplaud"] || r.fields["Review"] || "";
-        const dateStr = r.fields["Date_Added"];
-        const date = dateStr ? new Date(dateStr) : null;
-        return (
-          name &&
-          business &&
-          date &&
-          date >= new Date("2024-01-01T00:00:00") &&
-          date <= now &&
-          !COMPANY_USERS.map(u => u.toLowerCase()).includes((name || "").toLowerCase()) &&
-          isValidName(name) &&
-          text.length > 4
-        );
-      });
-      filtered = filtered.sort((a, b) => new Date(b.fields["Date_Added"]) - new Date(a.fields["Date_Added"]));
-      setSpotlightReviews(filtered);
-    };
-    fetchSpotlightReviews();
-    // eslint-disable-next-line
-  }, []);
+    fetchData();
+    if (intervalRef.current) clearInterval(intervalRef.current);
 
-  // Leaderboard logic (unchanged)
+    intervalRef.current = setInterval(() => {
+      fetchData();
+    }, 60000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+    // eslint-disable-next-line
+  }, [period]);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -342,19 +189,17 @@ const Leaderboard = () => {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
-    intervalRef.current = setInterval(() => {
-      fetchData();
-    }, 60000);
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-    // eslint-disable-next-line
-  }, [period]);
+  // Helper for period start (same as your logic)
+  function getPeriodStart(period) {
+    const now = new Date();
+    if (period === "weekly") {
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
+    } else if (period === "monthly") {
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0);
+    } else {
+      return new Date("2024-01-01T00:00:00");
+    }
+  }
 
   const handlePeriodChange = (key) => {
     setPeriod(key);
@@ -407,10 +252,6 @@ const Leaderboard = () => {
     ));
   };
 
-  // Split reviews for two rows (all reviews, no unique business filter)
-  const row1 = spotlightReviews.filter((_, i) => i % 2 === 0);
-  const row2 = spotlightReviews.filter((_, i) => i % 2 === 1);
-
   return (
     <div className="min-h-screen w-full relative flex flex-col items-center justify-center bg-white">
       <div className="relative z-10 py-8 sm:py-10 w-full max-w-6xl mx-auto px-2 sm:px-0">
@@ -460,42 +301,7 @@ const Leaderboard = () => {
           {renderUserRows(topUsers)}
         </div>
 
-        {/* Modern Wavy Divider */}
-        <div className="w-full overflow-hidden mt-10 sm:mt-16 mb-4 z-20 relative" style={{ maxWidth: "100%", margin: "0 auto" }}>
-          <svg viewBox="0 0 1440 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path fill={MINT} d="M0,45L1440,16L1440,320L0,320Z" />
-          </svg>
-        </div>
-
-        {/* --- COMMUNITY SPOTLIGHT (centered marquee, no border/gradient) --- */}
-        <div
-          className="flex flex-col items-center justify-center py-10 sm:py-14 px-1 sm:px-2 z-10 w-full"
-          style={{
-            margin: "0 auto",
-            maxWidth: "100vw",
-            background: "none",
-            borderRadius: "0",
-            boxShadow: "none",
-            overflow: "visible"
-          }}
-        >
-          <h3 className="text-xl sm:text-3xl font-extrabold mb-7 sm:mb-10 text-center tracking-tight" style={{ color: PRIMARY }}>
-            Community Spotlight
-          </h3>
-          {/* Marquee Rows */}
-          <div className="w-full flex flex-col gap-4 sm:gap-6 items-center">
-            <MarqueeRow>
-              {row1.map((r) => (
-                <ReviewCard review={r} key={r.id + "-row1"} navigate={navigate} />
-              ))}
-            </MarqueeRow>
-            <MarqueeRow reverse>
-              {row2.map((r) => (
-                <ReviewCard review={r} key={r.id + "-row2"} navigate={navigate} />
-              ))}
-            </MarqueeRow>
-          </div>
-        </div>
+        
       </div>
 
       {/* CTA: Full screen, purple background */}
@@ -542,14 +348,6 @@ const Leaderboard = () => {
 
       {/* Keyframes for blobs & marquee */}
       <style>{`
-        @keyframes marquee-fwd {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes marquee-rev {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
         .glass-bg {
           background: rgba(255,255,255,0.7);
           backdrop-filter: blur(13px) saturate(1.13);

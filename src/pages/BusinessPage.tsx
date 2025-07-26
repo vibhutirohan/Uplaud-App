@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, MapPin, Tag, Users } from "lucide-react";
 import axios from "axios";
-import nlp from "compromise"; // <-- NLP for extracting adjectives and verbs
+import nlp from "compromise";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,98 +44,146 @@ function emojiForScore(score) {
   return "😐";
 }
 
-// --- Unified Analytics Card with adjectives and verbs ---
-function UnifiedAnalyticsCard({ reviews, sentimentScore, numReviewers }) {
+// --- Most Mentioned Words Card ---
+function MostMentionedWordsCard({ reviews }) {
   const wordCounts = {};
-
   reviews.forEach((review) => {
     if (!review.uplaud) return;
-    // Use compromise for adjectives and verbs
     const doc = nlp(review.uplaud);
     const adjectives = doc.adjectives().out('array');
     const verbs = doc.verbs().out('array');
-
     [...adjectives, ...verbs].forEach((word) => {
       const w = word.toLowerCase();
       if (!w || STOPWORDS.has(w)) return;
       wordCounts[w] = (wordCounts[w] || 0) + 1;
     });
   });
-
   const sortedWords = Object.entries(wordCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10);
 
+  return (
+    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-lg h-full flex flex-col justify-between">
+      <div>
+        <h3 className="text-2xl font-black text-black mb-5">What people are saying</h3>
+        <h4 className="text-lg font-bold text-black mb-4">Expressive & Action Words</h4>
+        <div className="flex flex-wrap gap-3 mb-7">
+          {sortedWords.length === 0 ? (
+            <div className="text-gray-400 text-lg">No expressive/action keywords found.</div>
+          ) : sortedWords.map(([word, count], index) => (
+            <div
+              key={index}
+              className="bg-purple-100 text-purple-700 px-6 py-3 rounded-full font-semibold hover:bg-purple-200 transition-all duration-200 cursor-pointer hover:scale-105"
+            >
+              {word} ({count})
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Unique Reviewers Card (for tab) ---
+function UniqueReviewersTab({ numReviewers }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full py-8">
+      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-3 bg-purple-100 text-purple-700 shadow-md">
+        <Users className="w-8 h-8" />
+      </div>
+      <div className="text-3xl font-black text-black mb-1">{numReviewers}</div>
+      <div className="text-lg font-semibold text-gray-600 mb-1">Unique Reviewer{numReviewers === 1 ? '' : 's'}</div>
+      <div className="mt-1 text-base text-gray-500 text-center">
+        This business has received {numReviewers} unique review{numReviewers === 1 ? '' : 's'} from real users.
+      </div>
+    </div>
+  );
+}
+
+// --- Overall Sentiment Card (for tab) ---
+function OverallSentimentTab({ sentimentScore }) {
   const sentimentEmojis = [
     { emoji: "🔥", label: "Amazing" },
     { emoji: "😍", label: "Love it" },
     { emoji: "😐", label: "Okay" },
     { emoji: "😤", label: "Issues" },
   ];
-
   return (
-    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm w-full mb-12 flex flex-col lg:flex-row gap-8 items-stretch">
-      {/* Left: Expressive/action words + Unique reviewers */}
-      <div className="flex-1 min-w-[240px] flex flex-col justify-between">
-        <div>
-          <h3 className="text-3xl font-black text-black mb-7">What people are saying</h3>
-          <h4 className="text-xl font-bold text-black mb-6">Expressive & Action Words</h4>
-          <div className="flex flex-wrap gap-3 mb-7">
-            {sortedWords.length === 0 ? (
-              <div className="text-gray-400 text-lg">No expressive/action keywords found.</div>
-            ) : sortedWords.map(([word, count], index) => (
-              <div
-                key={index}
-                className="bg-purple-100 text-purple-700 px-6 py-3 rounded-full font-semibold hover:bg-purple-200 transition-all duration-200 cursor-pointer hover:scale-105"
-              >
-                {word} ({count})
-              </div>
-            ))}
+    <div className="flex flex-col justify-center h-full py-6">
+      <h4 className="text-xl font-bold text-black mb-6 text-center">Overall sentiment</h4>
+      <div className="bg-gray-100 rounded-full h-8 overflow-hidden mb-3">
+        <div className="h-full flex">
+          <div
+            className="flex items-center justify-center text-white text-sm font-bold transition-all duration-1000 ease-out bg-gradient-to-r from-purple-600 to-purple-500"
+            style={{ width: `${sentimentScore}%` }}
+          >
+            {sentimentScore > 7 ? `${sentimentScore}%` : ""}
           </div>
-        </div>
-        <div className="mt-auto pt-4">
-          <div className="flex flex-col items-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-3 bg-purple-100 text-purple-700 shadow-md">
-              <Users className="w-8 h-8" />
-            </div>
-            <div className="text-3xl font-black text-black mb-1">{numReviewers}</div>
-            <div className="text-base font-semibold text-gray-600">Unique Reviewer{numReviewers === 1 ? '' : 's'}</div>
-            <div className="mt-1 text-sm text-gray-500 text-center">
-              This business has received {numReviewers} unique review{numReviewers === 1 ? '' : 's'} from real users.
-            </div>
+          <div
+            className="bg-gray-400 flex items-center justify-center text-white text-sm font-bold"
+            style={{ width: `${100 - sentimentScore}%` }}
+          >
+            {sentimentScore <= 7 ? `${sentimentScore}%` : ""}
           </div>
         </div>
       </div>
-      {/* Right: Sentiment */}
-      <div className="flex-1 min-w-[280px] flex flex-col justify-center">
-        <h4 className="text-2xl font-bold text-black mb-6">Overall sentiment</h4>
-        <div className="bg-gray-100 rounded-full h-8 overflow-hidden mb-3">
-          <div className="h-full flex">
-            <div
-              className="flex items-center justify-center text-white text-sm font-bold transition-all duration-1000 ease-out bg-gradient-to-r from-purple-600 to-purple-500"
-              style={{ width: `${sentimentScore}%` }}
-            >
-              {sentimentScore > 7 ? `${sentimentScore}%` : ""}
-            </div>
-            <div
-              className="bg-gray-400 flex items-center justify-center text-white text-sm font-bold"
-              style={{ width: `${100 - sentimentScore}%` }}
-            >
-              {sentimentScore <= 7 ? `${sentimentScore}%` : ""}
-            </div>
+      <div className="flex justify-center gap-8 mt-4 mb-1">
+        {sentimentEmojis.map(({ emoji, label }) => (
+          <div key={label} className="flex flex-col items-center min-w-[48px]">
+            <span className="text-2xl">{emoji}</span>
+            <span className="text-gray-700 font-medium text-xs mt-1">{label}</span>
           </div>
-        </div>
-        <div className="flex justify-center gap-8 mt-4 mb-1">
-          {sentimentEmojis.map(({ emoji, label }) => (
-            <div key={label} className="flex flex-col items-center min-w-[56px]">
-              <span className="text-3xl">{emoji}</span>
-              <span className="text-gray-700 font-medium text-sm mt-1">{label}</span>
-            </div>
-          ))}
-        </div>
-        <div className="text-center font-semibold text-base mt-5">
-          <span className="text-purple-600">{sentimentScore}% satisfaction based on all reviews</span>
-        </div>
+        ))}
+      </div>
+      <div className="text-center font-semibold text-base mt-5">
+        <span className="text-purple-600">{sentimentScore}% satisfaction based on all reviews</span>
+      </div>
+    </div>
+  );
+}
+
+// --- Right Card with Tabs (with auto-switching) ---
+function RightAnalyticsTabs({ numReviewers, sentimentScore }) {
+  const [tab, setTab] = useState("reviewers");
+
+  // Auto-switch tabs every 3 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTab((prev) => (prev === "reviewers" ? "sentiment" : "reviewers"));
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-lg h-full flex flex-col">
+      <div className="flex justify-center gap-2 mb-4">
+        <button
+          className={`px-5 py-2 rounded-full font-semibold transition text-base ${
+            tab === "reviewers"
+              ? "bg-purple-600 text-white shadow tab-active"
+              : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+          }`}
+          onClick={() => setTab("reviewers")}
+        >
+          Unique Reviewers
+        </button>
+        <button
+          className={`px-5 py-2 rounded-full font-semibold transition text-base ${
+            tab === "sentiment"
+              ? "bg-purple-600 text-white shadow tab-active"
+              : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+          }`}
+          onClick={() => setTab("sentiment")}
+        >
+          Overall Sentiment
+        </button>
+      </div>
+      <div className="flex-1 flex flex-col">
+        {tab === "reviewers" ? (
+          <UniqueReviewersTab numReviewers={numReviewers} />
+        ) : (
+          <OverallSentimentTab sentimentScore={sentimentScore} />
+        )}
       </div>
     </div>
   );
@@ -342,13 +390,17 @@ const BusinessPage = () => {
 
         <BusinessHeader name={business.name} city={business.city} category={business.category} />
 
-        {/* --- Unified Analytics Card --- */}
-        <div className="w-full mt-2 mb-4">
-          <UnifiedAnalyticsCard
-            reviews={business.reviews}
-            sentimentScore={sentimentScore}
-            numReviewers={referralScore.numReviewers}
-          />
+        {/* --- Analytics Section with Responsive Same Height --- */}
+        <div className="w-full mt-2 mb-8 flex flex-col lg:flex-row gap-8">
+          <div className="w-full lg:w-1/2 flex-1">
+            <MostMentionedWordsCard reviews={business.reviews} />
+          </div>
+          <div className="w-full lg:w-1/2 flex-1">
+            <RightAnalyticsTabs
+              numReviewers={referralScore.numReviewers}
+              sentimentScore={sentimentScore}
+            />
+          </div>
         </div>
 
         {/* --- RECENT REVIEWS --- */}

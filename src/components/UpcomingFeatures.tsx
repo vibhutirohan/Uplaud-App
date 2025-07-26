@@ -1,11 +1,5 @@
-
 import React, { useRef, useEffect } from "react";
-interface UpcomingFeaturesProps {
-  className?: string;
-}
-const UpcomingFeatures = ({
-  className = ""
-}: UpcomingFeaturesProps) => {
+const Testimonials = () => {
   const sectionRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const observer = new IntersectionObserver(entries => {
@@ -33,55 +27,72 @@ const UpcomingFeatures = ({
       }
     };
   }, []);
-  return <section id="features" ref={sectionRef} className={`py-20 bg-white ${className}`}>
+  return <section ref={sectionRef} className="py-20 bg-uplaud-purple">
       <div className="section-container">
-        <h2 className="section-title fade-in-scroll text-gray-950">
-          Coming <span className="gradient-text text-emerald-600">Soon</span>
+        <h2 className="section-title fade-in-scroll font-normal text-white">
+          Trusted by <span className="gradient-text">Forward-Thinking Businesses</span>
         </h2>
-        <p className="section-subtitle fade-in-scroll text-zinc-950">
-          We're constantly evolving to bring you the best tools for customer feedback and referrals.
+        <p className="section-subtitle fade-in-scroll text-white">
+          See what our customers are saying about the Uplaud experience.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
-          <div className="rounded-xl p-8 transition-all duration-300 hover:shadow-md fade-in-scroll bg-teal-400">
-            <div className="bg-uplaud-purple/10 rounded-full w-16 h-16 flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-uplaud-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-              </svg>
+          <div className="bg-white rounded-xl shadow-md p-8 fade-in-scroll">
+            <div className="flex items-center mb-6">
+              <div className="bg-uplaud-purple/10 rounded-full w-12 h-12 flex items-center justify-center mr-3">
+                <span className="font-bold text-uplaud-purple">BV</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900">Balaji Venkataswamy</h4>
+                <p className="text-sm text-gray-950">Balaji On Brand</p>
+              </div>
             </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900">Verified Badges</h3>
-            <p className="text-slate-700">Boost credibility with verified customer badges displayed alongside reviews to add an extra layer of trust.</p>
-          </div>
-          
-          <div className="rounded-xl p-8 transition-all duration-300 hover:shadow-md fade-in-scroll bg-teal-400">
-            <div className="bg-uplaud-purple/10 rounded-full w-16 h-16 flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-uplaud-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
-              </svg>
+            <div className="mb-4">
+              <span className="text-yellow-400 text-lg">★★★★★</span>
             </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900">Points Marketplace</h3>
-            <p className="text-slate-700">
-              A dynamic marketplace where customers can redeem their earned points for products, services, and exclusive offers.
+            <p className="text-gray-600">
+              "Uplaud has transformed how we collect customer feedback. Our review rate increased by 65% and the quality of insights is exceptional. The referral system has been a game-changer for our growth."
             </p>
           </div>
           
-          <div className="rounded-xl p-8 transition-all duration-300 hover:shadow-md fade-in-scroll bg-teal-400">
-            <div className="bg-uplaud-purple/10 rounded-full w-16 h-16 flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-uplaud-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
-              </svg>
+          <div className="bg-white rounded-xl shadow-md p-8 fade-in-scroll">
+            <div className="flex items-center mb-6">
+              <div className="bg-uplaud-purple/10 rounded-full w-12 h-12 flex items-center justify-center mr-3">
+                <span className="font-bold text-uplaud-purple">CP</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-950">Charu Pel</h4>
+                <p className="text-sm text-gray-950">GRC3</p>
+              </div>
             </div>
-            <h3 className="text-xl font-bold mb-3 text-slate-900">Premium Loyalty Programs</h3>
-            <p className="text-slate-700">
-              Advanced loyalty tiers with exclusive benefits for your most valuable customers and brand advocates.
-            </p>
+            <div className="mb-4">
+              <span className="text-yellow-400 text-lg">★★★★★</span>
+            </div>
+            <p className="text-gray-600">"As a new business, authentic word-of-mouth is everything. Uplaud made it simple to collect reviews and turn our happy customers into our best marketing channel. Worth every penny!"</p>
+          </div>
+          
+          <div className="bg-white rounded-xl shadow-md p-8 fade-in-scroll">
+            <div className="flex items-center mb-6">
+              <div className="bg-uplaud-purple/10 rounded-full w-12 h-12 flex items-center justify-center mr-3">
+                <span className="font-bold text-uplaud-purple">BV</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-950">Birjoo Vaishnav</h4>
+                <p className="text-sm text-slate-950">Art of Living</p>
+              </div>
+            </div>
+            <div className="mb-4">
+              <span className="text-yellow-400 text-lg">★★★★★</span>
+            </div>
+            <p className="text-gray-600">This is an awesome creative service which will benefit millions!</p>
           </div>
         </div>
-        
-        <div className="mt-16">
-          
+
+        <div className="mt-16 fade-in-scroll">
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+          </div>
         </div>
       </div>
     </section>;
 };
-export default UpcomingFeatures;
+export default Testimonials;

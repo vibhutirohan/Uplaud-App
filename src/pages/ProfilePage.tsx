@@ -84,8 +84,9 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [visibleReviews, setVisibleReviews] = useState(3);
 
-  const followersCount = 0;
-  const followingCount = 0;
+  // --- Commented for now ---
+  // const followersCount = 0;
+  // const followingCount = 0;
 
   const isOwnProfile = (() => {
     try {
@@ -217,9 +218,10 @@ const ProfilePage = () => {
     if (id) fetchUserAndReviews();
   }, [id]);
 
-  const handleFollow = () => {
-    navigate("/login", { state: { fromProfile: window.location.pathname, action: "follow" } });
-  };
+  // --- Commented for now ---
+  // const handleFollow = () => {
+  //   navigate("/login", { state: { fromProfile: window.location.pathname, action: "follow" } });
+  // };
 
   const handleProfileShare = () => {
     if (!user) return;
@@ -298,6 +300,7 @@ const ProfilePage = () => {
           </div>
           {/* Actions */}
           <div className="flex flex-col gap-2 sm:gap-2 sm:flex-row sm:items-center sm:ml-auto">
+            {/* 
             {!isOwnProfile && (
               <button
                 onClick={handleFollow}
@@ -306,7 +309,8 @@ const ProfilePage = () => {
                 <UserPlus className="w-4 h-4" />
                 Follow
               </button>
-            )}
+            )} 
+            */}
             <button
               onClick={handleProfileShare}
               className="flex items-center justify-center border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 px-3 py-2 rounded-lg shadow"
@@ -317,7 +321,9 @@ const ProfilePage = () => {
           </div>
         </div>
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6 w-full">
+       <div className="flex justify-center gap-10 mb-8 w-full">
+
+          {/* 
           <div className="flex flex-col items-center rounded-xl shadow bg-[#457cf6]/10 py-5">
             <Users className="w-7 h-7 text-[#457cf6] mb-1" />
             <div className="text-2xl font-bold text-gray-900">{followersCount}</div>
@@ -328,21 +334,25 @@ const ProfilePage = () => {
             <div className="text-2xl font-bold text-gray-900">{followingCount}</div>
             <div className="text-sm text-gray-600 font-semibold">Following</div>
           </div>
-          <div className="flex flex-col items-center rounded-xl shadow bg-[#fbbf24]/10 py-5">
-            <MessageSquare className="w-7 h-7 text-[#fbbf24] mb-1" />
-            <div className="text-2xl font-bold text-gray-900">{reviews.length}</div>
-            <div className="text-sm text-gray-600 font-semibold">{reviewLabel}</div>
-          </div>
-          <div className="flex flex-col items-center rounded-xl shadow bg-[#a855f7]/10 py-5">
-            <Star className="w-7 h-7 text-[#a855f7] mb-1" />
-            <div className="text-2xl font-bold text-gray-900">{points}</div>
-            <div className="text-sm text-gray-600 font-semibold">Score</div>
-          </div>
-          <div className="flex flex-col items-center rounded-xl shadow bg-[#f43f5e]/10 py-5">
-            <Award className="w-7 h-7 text-[#f43f5e] mb-1" />
-            <div className="text-2xl font-bold text-gray-900">{referralCount}</div>
-            <div className="text-sm text-gray-600 font-semibold">{referralLabel}</div>
-          </div>
+          */}
+     <div className="flex flex-col items-center rounded-2xl shadow bg-[#fbbf24]/10 py-6 px-10 min-w-[220px]">
+    <MessageSquare className="w-10 h-10 text-[#fbbf24] mb-2" />
+    <div className="text-3xl font-bold text-gray-900">{reviews.length}</div>
+    <div className="text-base text-gray-600 font-semibold mt-1">{reviewLabel}</div>
+  </div>
+  {/* Score Card */}
+  <div className="flex flex-col items-center rounded-2xl shadow bg-[#a855f7]/10 py-6 px-10 min-w-[220px]">
+    <Star className="w-10 h-10 text-[#a855f7] mb-2" />
+    <div className="text-3xl font-bold text-gray-900">{points}</div>
+    <div className="text-base text-gray-600 font-semibold mt-1">Score</div>
+  </div>
+  {/* Referrals Card */}
+  <div className="flex flex-col items-center rounded-2xl shadow bg-[#f43f5e]/10 py-6 px-10 min-w-[220px]">
+    <Award className="w-10 h-10 text-[#f43f5e] mb-2" />
+    <div className="text-3xl font-bold text-gray-900">{referralCount}</div>
+    <div className="text-base text-gray-600 font-semibold mt-1">{referralLabel}</div>
+  </div>
+
         </div>
         {/* Tab Bar */}
         <div className="flex gap-2 mb-3 border-b border-gray-200 w-full">
