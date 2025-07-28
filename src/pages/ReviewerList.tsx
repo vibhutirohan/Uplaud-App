@@ -36,7 +36,68 @@ const rankBadges = [
   <span key="3" className="inline-flex items-center mr-2 text-2xl">🥉</span>
 ];
 
-const MARQUEE_DURATION = 350;
+// --- Helper for Airtable filterByFormula ---
+function getPeriodFilter(period) {
+  const now = new Date();
+  if (period === "weekly") {
+    // Last 7 days
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    return `IS_AFTER({Date_Added}, '${start.toISOString().slice(0, 10)}')`;
+  } else if (period === "monthly") {
+    // Last 30 days
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+    return `IS_AFTER({Date_Added}, '${start.toISOString().slice(0, 10)}')`;
+  } else {
+    // All time: no filter
+    return '';
+  }
+}
+
+// --- Optimized Airtable fetch for reviews ---
+const fetchFilteredAirtableReviews = async (period) => {
+  let allRecords = [];
+  let offset = undefined;
+  const filterByFormula = getPeriodFilter(period);
+  try {
+    do {
+      const params = { pageSize: 100 };
+      if (offset) params.offset = offset;
+      if (filterByFormula) params.filterByFormula = filterByFormula;
+      params.fields = [
+        "ID (from Creator)", "Name_Creator", "Date_Added"
+      ];
+      const resp = await axios.get(
+        `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
+        { headers: { Authorization: `Bearer ${API_KEY}` }, params }
+      );
+      allRecords = allRecords.concat(resp.data.records);
+      offset = resp.data.offset;
+    } while (offset);
+    return allRecords;
+  } catch (e) {
+    return [];
+  }
+};
+
+const fetchAllAirtableCircles = async () => {
+  let allRecords = [];
+  let offset = undefined;
+  try {
+    do {
+      const params = { pageSize: 100 };
+      if (offset) params.offset = offset;
+      const resp = await axios.get(
+        `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
+        { headers: { Authorization: `Bearer ${API_KEY}` }, params }
+      );
+      allRecords = allRecords.concat(resp.data.records);
+      offset = resp.data.offset;
+    } while (offset);
+    return allRecords;
+  } catch (e) {
+    return [];
+  }
+};
 
 const Leaderboard = () => {
   const [topUsers, setTopUsers] = useState([]);
@@ -46,47 +107,6 @@ const Leaderboard = () => {
   const navigate = useNavigate();
   const intervalRef = useRef(null);
 
-  // --- Airtable fetch helpers (no changes) ---
-  const fetchAllAirtableReviews = async () => {
-    let allRecords = [];
-    let offset = undefined;
-    try {
-      do {
-        const params = { pageSize: 100 };
-        if (offset) params.offset = offset;
-        const resp = await axios.get(
-          `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
-          { headers: { Authorization: `Bearer ${API_KEY}` }, params }
-        );
-        allRecords = allRecords.concat(resp.data.records);
-        offset = resp.data.offset;
-      } while (offset);
-      return allRecords;
-    } catch (e) {
-      return [];
-    }
-  };
-  const fetchAllAirtableCircles = async () => {
-    let allRecords = [];
-    let offset = undefined;
-    try {
-      do {
-        const params = { pageSize: 100 };
-        if (offset) params.offset = offset;
-        const resp = await axios.get(
-          `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
-          { headers: { Authorization: `Bearer ${API_KEY}` }, params }
-        );
-        allRecords = allRecords.concat(resp.data.records);
-        offset = resp.data.offset;
-      } while (offset);
-      return allRecords;
-    } catch (e) {
-      return [];
-    }
-  };
-
-  // --- Top Reviewers Logic (no changes) ---
   useEffect(() => {
     fetchData();
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -104,11 +124,11 @@ const Leaderboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Fetch filtered reviews (way faster!)
       const [reviews, circles] = await Promise.all([
-        fetchAllAirtableReviews(),
+        fetchFilteredAirtableReviews(period),
         fetchAllAirtableCircles()
       ]);
-      const startDate = getPeriodStart(period);
 
       const userMap = {};
       const reviewedUserIds = new Set();
@@ -125,7 +145,6 @@ const Leaderboard = () => {
           typeof id === "number" &&
           typeof name === "string" &&
           reviewDate &&
-          reviewDate >= startDate &&
           !COMPANY_USERS.map(u => u.toLowerCase()).includes(name.toLowerCase()) &&
           isValidName(name)
         ) {
@@ -188,18 +207,6 @@ const Leaderboard = () => {
       setLoading(false);
     }
   };
-
-  // Helper for period start (same as your logic)
-  function getPeriodStart(period) {
-    const now = new Date();
-    if (period === "weekly") {
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0);
-    } else if (period === "monthly") {
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29, 0, 0, 0);
-    } else {
-      return new Date("2024-01-01T00:00:00");
-    }
-  }
 
   const handlePeriodChange = (key) => {
     setPeriod(key);
@@ -300,8 +307,6 @@ const Leaderboard = () => {
           style={{ maxWidth: 1100, margin: "0 auto", background: "rgba(255,255,255,0.85)", backdropFilter: "blur(10px)" }}>
           {renderUserRows(topUsers)}
         </div>
-
-        
       </div>
 
       {/* CTA: Full screen, purple background */}
