@@ -36,24 +36,19 @@ const rankBadges = [
   <span key="3" className="inline-flex items-center mr-2 text-2xl">🥉</span>
 ];
 
-// --- Helper for Airtable filterByFormula ---
 function getPeriodFilter(period) {
   const now = new Date();
   if (period === "weekly") {
-    // Last 7 days
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
     return `IS_AFTER({Date_Added}, '${start.toISOString().slice(0, 10)}')`;
   } else if (period === "monthly") {
-    // Last 30 days
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
     return `IS_AFTER({Date_Added}, '${start.toISOString().slice(0, 10)}')`;
   } else {
-    // All time: no filter
     return '';
   }
 }
 
-// --- Optimized Airtable fetch for reviews ---
 const fetchFilteredAirtableReviews = async (period) => {
   let allRecords = [];
   let offset = undefined;
@@ -118,13 +113,11 @@ const Leaderboard = () => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-    // eslint-disable-next-line
   }, [period]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch filtered reviews (way faster!)
       const [reviews, circles] = await Promise.all([
         fetchFilteredAirtableReviews(period),
         fetchAllAirtableCircles()
@@ -219,6 +212,7 @@ const Leaderboard = () => {
     { key: "all-time", label: "All Time" },
   ];
 
+  // ----- Improved alignment for desktop view -----
   const renderUserRows = (users) => {
     if (loading) {
       return <div className="text-center text-gray-400">Loading...</div>;
@@ -229,31 +223,35 @@ const Leaderboard = () => {
     return users.map((user, idx) => (
       <div
         key={user.creatorId}
-        className={`
-          flex flex-col sm:flex-row items-center justify-between px-4 sm:px-10 py-4 sm:py-6 mb-4 rounded-2xl shadow-lg border border-gray-100
-          transition-transform hover:-translate-y-1 group glass-bg
-        `}
         onClick={() => navigate(`/profile/${slugify(user.creatorName)}`)}
+        className={`
+          flex items-center justify-between px-4 sm:px-10 py-4 sm:py-6 mb-4
+          rounded-2xl shadow-lg border border-gray-100 transition-transform hover:-translate-y-1 group glass-bg
+        `}
         style={{
           minHeight: 68,
-          maxWidth: "100%",
-          cursor: "pointer",
           background:
             idx === 0 ? CARD_BG_TOP1
               : idx === 1 ? CARD_BG_TOP2
               : idx === 2 ? CARD_BG_TOP3
               : CARD_BG_NORMAL,
-          border: idx === 0 ? `2.5px solid ${MINT}` : "1.5px solid #F1ECFF"
+          border: idx === 0 ? `2.5px solid ${MINT}` : "1.5px solid #F1ECFF",
+          cursor: "pointer",
+          maxWidth: "100%",
         }}
       >
-        <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-start">
+        {/* User area */}
+        <div className="flex items-center gap-3 min-w-[150px]">
           <span className="text-2xl" style={{ filter: idx <= 2 ? "drop-shadow(0 2px 3px #eee)" : undefined }}>
             {rankBadges[idx] || <span className="text-xl font-bold text-purple-200">{`#${idx + 1}`}</span>}
           </span>
-          <span className="font-bold text-lg text-gray-900 group-hover:text-purple-700 transition">{user.creatorName}</span>
+          <span className="font-bold text-base sm:text-lg text-gray-900 group-hover:text-purple-700 transition">
+            {user.creatorName}
+          </span>
         </div>
-        <div className="flex flex-col items-center sm:items-end min-w-[95px]">
-          <span className="font-bold text-[20px] sm:text-[22px] text-[#6D46C6]">{user.points} pts</span>
+        {/* Points area */}
+        <div className="flex items-center min-w-[90px] justify-end">
+          <span className="font-bold text-[18px] sm:text-[22px] text-[#6D46C6]">{user.points} pts</span>
         </div>
       </div>
     ));
@@ -264,7 +262,7 @@ const Leaderboard = () => {
       <div className="relative z-10 py-8 sm:py-10 w-full max-w-6xl mx-auto px-2 sm:px-0">
         <button
           onClick={() => navigate("/")}
-          className="mb-6 sm:mb-8 px-4 sm:px-5 py-2 bg-white/90 text-[#6D46C6] font-bold rounded-lg hover:bg-[#5EEAD4]/30 shadow border border-[#5EEAD4] flex items-center gap-2 transition backdrop-blur"
+          className="mb-6 sm:mb-8 px-3 sm:px-5 py-2 bg-white/90 text-[#6D46C6] font-bold rounded-lg hover:bg-[#5EEAD4]/30 shadow border border-[#5EEAD4] flex items-center gap-2 transition backdrop-blur text-sm sm:text-base"
         >
           <svg className="w-5 h-5 mr-2" fill="none" stroke={PRIMARY} strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -351,7 +349,6 @@ const Leaderboard = () => {
         </p>
       </div>
 
-      {/* Keyframes for blobs & marquee */}
       <style>{`
         .glass-bg {
           background: rgba(255,255,255,0.7);
