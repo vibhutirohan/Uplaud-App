@@ -1,24 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Tag, Users } from "lucide-react";
+import { ArrowLeft, MapPin, Tag, Users, MessageCircle } from "lucide-react";
 import axios from "axios";
 import nlp from "compromise";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-// Airtable config
 const API_KEY = 'patgat0IYY3MEpP0E.07c83079a93fcb0f6020e201ae6295542be839697d3eaa107f920a2395abdd6a';
 const BASE_ID = 'appFUJWWTaoJ3YiWt';
 const REVIEWS_TABLE = 'tblef0n1hQXiKPHxI';
 const CIRCLES_TABLE = 'tbldL8H5T4qYKUzLV';
 
-// Common stopwords
-const STOPWORDS = new Set([
-  "the", "is", "in", "at", "and", "to", "a", "of", "was", "for", "it", "on", "with", "as", "an", "by", "were", "so", "be", "but", "if", "or",
-  "had", "from", "that", "this", "are", "my", "me", "we", "our", "us", "very", "you", "they", "he", "she", "his", "her", "their", "them",
-  "all", "can", "just", "will", "has", "have", "not", "too", "about", "out", "your", "more", "one", "also", "there", "would", "what"
-]);
-
+// Helper functions
 function slugify(name = "") {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 }
@@ -30,12 +23,6 @@ function formatDate(date) {
     year: "numeric"
   });
 }
-function getInitials(name) {
-  if (!name || typeof name !== "string") return "A";
-  const words = name.split(" ");
-  if (words.length === 1) return words[0][0].toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
-}
 function emojiForScore(score) {
   if (score === 5) return "🔥";
   if (score === 4) return "😍";
@@ -44,7 +31,7 @@ function emojiForScore(score) {
   return "😐";
 }
 
-// --- Most Mentioned Words Card ---
+// Most Mentioned Words Card
 function MostMentionedWordsCard({ reviews }) {
   const wordCounts = {};
   reviews.forEach((review) => {
@@ -54,7 +41,7 @@ function MostMentionedWordsCard({ reviews }) {
     const verbs = doc.verbs().out('array');
     [...adjectives, ...verbs].forEach((word) => {
       const w = word.toLowerCase();
-      if (!w || STOPWORDS.has(w)) return;
+      if (!w || w.length < 3) return;
       wordCounts[w] = (wordCounts[w] || 0) + 1;
     });
   });
@@ -63,7 +50,7 @@ function MostMentionedWordsCard({ reviews }) {
     .slice(0, 10);
 
   return (
-    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-lg h-full flex flex-col justify-between">
+    <div style={{ background: "#FFF7E6" }} className="rounded-3xl p-8 border border-gray-100 shadow-lg h-full flex flex-col justify-between">
       <div>
         <h3 className="text-2xl font-black text-black mb-5">What people are saying</h3>
         <h4 className="text-lg font-bold text-black mb-4">Expressive & Action Words</h4>
@@ -84,7 +71,7 @@ function MostMentionedWordsCard({ reviews }) {
   );
 }
 
-// --- Unique Reviewers Card (for tab) ---
+// Unique Reviewers Tab
 function UniqueReviewersTab({ numReviewers }) {
   return (
     <div className="flex flex-col items-center justify-center h-full py-8">
@@ -100,7 +87,7 @@ function UniqueReviewersTab({ numReviewers }) {
   );
 }
 
-// --- Overall Sentiment Card (for tab) ---
+// Overall Sentiment Tab
 function OverallSentimentTab({ sentimentScore }) {
   const sentimentEmojis = [
     { emoji: "🔥", label: "Amazing" },
@@ -142,12 +129,11 @@ function OverallSentimentTab({ sentimentScore }) {
   );
 }
 
-// --- Right Card with Tabs (with auto-switching) ---
+// Tabs for right analytics
 function RightAnalyticsTabs({ numReviewers, sentimentScore }) {
   const [tab, setTab] = useState("reviewers");
 
-  // Auto-switch tabs every 3 seconds
-  useEffect(() => {
+  React.useEffect(() => {
     const timer = setInterval(() => {
       setTab((prev) => (prev === "reviewers" ? "sentiment" : "reviewers"));
     }, 4000);
@@ -155,7 +141,7 @@ function RightAnalyticsTabs({ numReviewers, sentimentScore }) {
   }, []);
 
   return (
-    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-lg h-full flex flex-col">
+    <div style={{ background: "#FFF7E6" }} className="rounded-3xl p-8 border border-gray-100 shadow-lg h-full flex flex-col">
       <div className="flex justify-center gap-2 mb-4">
         <button
           className={`px-5 py-2 rounded-full font-semibold transition text-base ${
@@ -189,43 +175,46 @@ function RightAnalyticsTabs({ numReviewers, sentimentScore }) {
   );
 }
 
-// --- Business Header (no changes) ---
-function BusinessHeader({ name, city = "Austin, TX", category = "Coffee Shop" }) {
+// Business Header with conditional tags and no image placeholder
+function BusinessHeader({ name, city, category }) {
   const handleClaimClick = () => {
     window.open(
       "https://docs.google.com/forms/d/e/1FAIpQLScOFSp2wEGN50-d58e43laMRW2RuPbEr4407R34pZVw4eDYhA/viewform",
       "_blank"
     );
   };
+
   return (
-    <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-sm mb-10">
-      <div className="flex flex-col lg:flex-row justify-between items-start gap-8">
-        <div className="flex-1">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-black mb-4 tracking-tight">
-            {name}
-          </h1>
-          <div className="flex flex-wrap gap-4">
-            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-6 py-3 rounded-full text-base font-semibold border-0">
-              <MapPin className="w-4 h-4 mr-2" />
+    <div style={{ background: "#FFF7E6" }} className="rounded-3xl p-8 border border-gray-100 shadow-sm mb-10 flex flex-col sm:flex-row justify-between items-center gap-6">
+      <div className="flex-1 min-w-0">
+        <h1 className="text-2xl md:text-4xl lg:text-2xl font-black text-black mb-4 tracking-tight truncate">
+          {name}
+        </h1>
+        <div className="flex flex-wrap gap-4">
+          {city && (
+            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-6 py-3 rounded-full text-base font-semibold border-0 flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
               {city}
             </Badge>
-            <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-6 py-3 rounded-full text-base font-semibold border-0">
-              <Tag className="w-4 h-4 mr-2" />
+          )}
+          {category && (
+            <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-6 py-3 rounded-full text-base font-semibold border-0 flex items-center gap-2">
+              <Tag className="w-5 h-5" />
               {category}
             </Badge>
-          </div>
+          )}
         </div>
-        <Button
-          variant="outline"
-          className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 rounded-full px-8 py-3 font-semibold text-base mt-8 lg:mt-0"
-          onClick={handleClaimClick}
-        >
-          Claim this business
-        </Button>
       </div>
+      <Button
+        variant="outline"
+        className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 rounded-full px-8 py-3 font-semibold text-base whitespace-nowrap"
+        onClick={handleClaimClick}
+      >
+        Claim this business
+      </Button>
     </div>
   );
-};
+}
 
 const BusinessPage = () => {
   const { slug } = useParams();
@@ -369,11 +358,56 @@ const BusinessPage = () => {
     if (slug) fetchData();
   }, [slug]);
 
+  // Review Card with WhatsApp green background and beige outer container
+  function ReviewCard({ review }) {
+    return (
+      <div
+        className="flex flex-col sm:flex-row rounded-2xl px-5 sm:px-7 py-5 sm:py-6 shadow group transition hover:shadow-xl"
+        style={{ alignItems: "flex-start", background: "#FFF7E6" }} // Beige outer
+      >
+        <Link
+          to={`/profile/${slugify(review.user)}`}
+          className="flex-shrink-0 flex flex-col items-center mr-0 sm:mr-5 mb-2 sm:mb-0 group cursor-pointer"
+          style={{ textDecoration: "none" }}
+        >
+          <div className="bg-green-100 rounded-full p-4">
+            <MessageCircle className="text-green-600 w-6 h-6" />
+          </div>
+        </Link>
+        <div className="flex-1 w-full">
+          <div className="flex items-center w-full mb-2 flex-wrap gap-1">
+            <Link
+              to={`/profile/${slugify(review.user)}`}
+              className="font-bold text-base sm:text-lg text-black hover:underline hover:text-purple-700"
+            >
+              {review.user}
+            </Link>
+            {review.score ? (
+              <span className="flex items-center ml-2">
+                {Array.from({ length: review.score }).map((_, i) => (
+                  <span key={i} className="text-yellow-400 text-lg leading-none">★</span>
+                ))}
+                <span className="ml-1 text-2xl">{emojiForScore(review.score)}</span>
+              </span>
+            ) : null}
+            <span className="flex-1" />
+            <span className="text-gray-500 text-sm font-medium">
+              {formatDate(review.date)}
+            </span>
+          </div>
+          <div className="mt-2 rounded-xl border px-4 sm:px-6 py-4 text-gray-900 shadow-sm text-base font-medium break-words" style={{ background: "#DCF8C6" }}>
+            {review.uplaud}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="min-h-screen w-full"
       style={{
-        background: "linear-gradient(135deg, #ede9fe 0%, #f7fefb 45%, #e0f7e9 100%)",
+        background: "#6D46C6",
         minHeight: "100vh",
       }}
     >
@@ -381,7 +415,8 @@ const BusinessPage = () => {
         <div className="mb-6">
           <Button
             variant="outline"
-            className="text-purple-700 font-bold flex items-center gap-2 border border-purple-200 shadow bg-white hover:bg-purple-100"
+            className="text-purple-700 font-bold flex items-center gap-2 border border-purple-200 shadow"
+            style={{ background: "#FFF7E6" }}
             onClick={() => navigate(-1)}
           >
             <ArrowLeft className="w-5 h-5" /> Back
@@ -390,7 +425,7 @@ const BusinessPage = () => {
 
         <BusinessHeader name={business.name} city={business.city} category={business.category} />
 
-        {/* --- Analytics Section with Responsive Same Height --- */}
+        {/* --- Analytics Section --- */}
         <div className="w-full mt-2 mb-8 flex flex-col lg:flex-row gap-8">
           <div className="w-full lg:w-1/2 flex-1">
             <MostMentionedWordsCard reviews={business.reviews} />
@@ -404,61 +439,25 @@ const BusinessPage = () => {
         </div>
 
         {/* --- RECENT REVIEWS --- */}
-        <div className="w-full mx-auto mt-8 mb-8">
-          <div className="rounded-3xl shadow-lg bg-white/95 border border-purple-100 p-5 md:p-10">
-            <div className="font-black text-2xl md:text-3xl mb-7 text-black">Recent Reviews</div>
-            {loading ? (
-              <div className="text-center text-gray-400 py-8">Loading reviews…</div>
-            ) : business.reviews.length === 0 ? (
-              <div className="text-center text-gray-400 py-8">No reviews found for this business.</div>
-            ) : (
-              <div className="space-y-7">
-                {business.reviews.map((review, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-col md:flex-row bg-purple-50 rounded-2xl px-7 py-6 shadow group transition hover:shadow-xl"
-                    style={{ alignItems: "flex-start" }}
-                  >
-                    <Link
-                      to={`/profile/${slugify(review.user)}`}
-                      className="flex-shrink-0 flex flex-col items-center mr-5 mb-2 md:mb-0 group cursor-pointer"
-                      style={{ textDecoration: "none" }}
-                    >
-                      <div className="w-12 h-12 rounded-full bg-purple-400 text-white font-bold text-xl flex items-center justify-center shadow-lg">
-                        {getInitials(review.user)}
-                      </div>
-                      <span className="mt-2 text-2xl">{emojiForScore(review.score)}</span>
-                    </Link>
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <Link
-                          to={`/profile/${slugify(review.user)}`}
-                          className="font-bold text-lg text-black hover:underline hover:text-purple-700"
-                        >
-                          {review.user}
-                        </Link>
-                        {review.score ? (
-                          <span className="flex items-center ml-2">
-                            {Array.from({ length: review.score }).map((_, i) => (
-                              <span key={i} className="text-yellow-400 text-xl">★</span>
-                            ))}
-                          </span>
-                        ) : null}
-                        <span className="ml-auto text-gray-500 text-base font-medium" style={{ marginLeft: "auto" }}>
-                          {formatDate(review.date)}
-                        </span>
-                      </div>
-                      <div className="mt-2 bg-white rounded-xl border px-6 py-4 text-gray-900 shadow-sm text-base font-medium">
-                        {review.uplaud}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+        <div className="w-full mx-auto mt-8 mb-8 rounded-3xl shadow-lg border border-purple-100 p-5 md:p-10" style={{ background: "#FFF7E6" }}>
+          {/* Added "Recent Reviews" title */}
+          <h2 className="text-black font-black text-3xl mb-8"> Reviews</h2>
+          {loading ? (
+            <div className="text-center text-gray-400 py-8">Loading reviews…</div>
+          ) : business.reviews.length === 0 ? (
+            <div className="text-center text-gray-400 py-8">No reviews found for this business.</div>
+          ) : (
+            <div className="space-y-7">
+              {business.reviews.map((review, idx) => (
+                <ReviewCard key={idx} review={review} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+      <style>{`
+        body { background: #6D46C6 !important; }
+      `}</style>
     </div>
   );
 };

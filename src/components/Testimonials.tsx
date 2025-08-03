@@ -78,7 +78,7 @@ function ReviewCard({ review, navigate }) {
 
   return (
     <figure
-      className="relative h-full w-72 sm:w-80 overflow-hidden rounded-2xl border-2 p-6 shadow-lg bg-white hover:shadow-2xl hover:scale-[1.03] transition-all flex flex-col"
+      className="relative h-full w-72 sm:w-80 overflow-hidden rounded-2xl border-2 p-6 shadow-lg bg-white transition-all flex flex-col"
       style={{
         minWidth: 240,
         maxWidth: 340,
@@ -145,7 +145,9 @@ function ReviewCard({ review, navigate }) {
           {userName}
         </span>
       </div>
-      {/* Like (Heart) button bottom right */}
+
+      {/* 🔒 COMMENTED OUT: Like (Heart) Button until login is ready */}
+      {/*
       <button
         className="absolute bottom-4 right-4 bg-white rounded-full p-2 border border-gray-200 shadow flex items-center justify-center transition hover:scale-110 active:scale-95"
         style={{
@@ -166,6 +168,7 @@ function ReviewCard({ review, navigate }) {
           />
         </svg>
       </button>
+      */}
     </figure>
   );
 }

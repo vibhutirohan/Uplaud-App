@@ -1,21 +1,17 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { Crown, Medal, Award, MessageCircle, ArrowLeft } from "lucide-react";
 
 const PRIMARY = "#6D46C6";
 const MINT = "#5EEAD4";
-const CARD_BG_TOP1 = "#FEFBEA";
-const CARD_BG_TOP2 = "#F3F8FE";
-const CARD_BG_TOP3 = "#FFF6F2";
-const CARD_BG_NORMAL = "#FFFFFF";
-
 const API_KEY = 'patZS8GyNhkwoP4wY.2beddc214f4dd2a5e4c220ae654f62652a5e02a47bae2287c54fced7bb97c07e';
 const BASE_ID = 'appFUJWWTaoJ3YiWt';
 const REVIEWS_TABLE = 'tblef0n1hQXiKPHxI';
 const CIRCLES_TABLE = 'tbldL8H5T4qYKUzLV';
 
 const COMPANY_USERS = [
-  "Deepthi Rao", "Rohan Vibhuti ", "Shreya Shinde", "Gargi", "Pranali", "Vansh Desai", "Hitanshi"
+  "Deepthi Rao", "Rohan", "Rohan Vibhuti ", "Shreya Shinde", "Gargi", "Pranali", "Vansh Desai", "Hitanshi"
 ];
 
 function isValidName(name = "") {
@@ -30,12 +26,6 @@ function slugify(name = "") {
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
 }
-const rankBadges = [
-  <span key="1" className="inline-flex items-center mr-2 text-2xl">🥇</span>,
-  <span key="2" className="inline-flex items-center mr-2 text-2xl">🥈</span>,
-  <span key="3" className="inline-flex items-center mr-2 text-2xl">🥉</span>
-];
-
 function getPeriodFilter(period) {
   const now = new Date();
   if (period === "weekly") {
@@ -94,6 +84,24 @@ const fetchAllAirtableCircles = async () => {
   }
 };
 
+const periodTabs = [
+  { key: "weekly", label: "This Week" },
+  { key: "monthly", label: "Monthly" },
+  { key: "all-time", label: "All Time" },
+];
+
+const getRankIcon = (rank) => {
+  switch (rank) {
+    case 1: return <Crown className="w-7 h-7 text-yellow-500 drop-shadow" />;
+    case 2: return <Medal className="w-7 h-7 text-gray-400 drop-shadow" />;
+    case 3: return <Award className="w-7 h-7 text-orange-500 drop-shadow" />;
+    default:
+      return (
+        <span className="w-7 h-7 flex items-center justify-center text-muted-foreground font-bold">{rank}</span>
+      );
+  }
+};
+
 const Leaderboard = () => {
   const [topUsers, setTopUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -105,14 +113,13 @@ const Leaderboard = () => {
   useEffect(() => {
     fetchData();
     if (intervalRef.current) clearInterval(intervalRef.current);
-
     intervalRef.current = setInterval(() => {
       fetchData();
     }, 60000);
-
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
+    // eslint-disable-next-line
   }, [period]);
 
   const fetchData = async () => {
@@ -193,7 +200,7 @@ const Leaderboard = () => {
         return b.latestDate.getTime() - a.latestDate.getTime();
       });
 
-      setTopUsers(sorted.slice(0, 5));
+      setTopUsers(sorted.slice(0, 5)); // show only top 5
     } catch (err) {
       setTopUsers([]);
     } finally {
@@ -206,153 +213,165 @@ const Leaderboard = () => {
     localStorage.setItem("leaderboardPeriod", key);
   };
 
-  const periodTabs = [
-    { key: "weekly", label: "This Week" },
-    { key: "monthly", label: "Monthly" },
-    { key: "all-time", label: "All Time" },
-  ];
-
-  // ----- Improved alignment for desktop view -----
-  const renderUserRows = (users) => {
-    if (loading) {
-      return <div className="text-center text-gray-400">Loading...</div>;
-    }
-    if (!users || users.length === 0) {
-      return <div className="text-center text-gray-400">No reviewers found.</div>;
-    }
-    return users.map((user, idx) => (
-      <div
-        key={user.creatorId}
-        onClick={() => navigate(`/profile/${slugify(user.creatorName)}`)}
-        className={`
-          flex items-center justify-between px-4 sm:px-10 py-4 sm:py-6 mb-4
-          rounded-2xl shadow-lg border border-gray-100 transition-transform hover:-translate-y-1 group glass-bg
-        `}
-        style={{
-          minHeight: 68,
-          background:
-            idx === 0 ? CARD_BG_TOP1
-              : idx === 1 ? CARD_BG_TOP2
-              : idx === 2 ? CARD_BG_TOP3
-              : CARD_BG_NORMAL,
-          border: idx === 0 ? `2.5px solid ${MINT}` : "1.5px solid #F1ECFF",
-          cursor: "pointer",
-          maxWidth: "100%",
-        }}
-      >
-        {/* User area */}
-        <div className="flex items-center gap-3 min-w-[150px]">
-          <span className="text-2xl" style={{ filter: idx <= 2 ? "drop-shadow(0 2px 3px #eee)" : undefined }}>
-            {rankBadges[idx] || <span className="text-xl font-bold text-purple-200">{`#${idx + 1}`}</span>}
-          </span>
-          <span className="font-bold text-base sm:text-lg text-gray-900 group-hover:text-purple-700 transition">
-            {user.creatorName}
-          </span>
-        </div>
-        {/* Points area */}
-        <div className="flex items-center min-w-[90px] justify-end">
-          <span className="font-bold text-[18px] sm:text-[22px] text-[#6D46C6]">{user.points} pts</span>
-        </div>
-      </div>
-    ));
-  };
-
+  // --- UI RENDER ---
   return (
-    <div className="min-h-screen w-full relative flex flex-col items-center justify-center bg-white">
-      <div className="relative z-10 py-8 sm:py-10 w-full max-w-6xl mx-auto px-2 sm:px-0">
-        <button
-          onClick={() => navigate("/")}
-          className="mb-6 sm:mb-8 px-3 sm:px-5 py-2 bg-white/90 text-[#6D46C6] font-bold rounded-lg hover:bg-[#5EEAD4]/30 shadow border border-[#5EEAD4] flex items-center gap-2 transition backdrop-blur text-sm sm:text-base"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke={PRIMARY} strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </button>
+    <div className="min-h-screen w-full bg-[#6D46C6] relative">
+      {/* Back Button */}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-4 left-2 sm:top-7 sm:left-7 z-20 flex items-center gap-1 px-2 py-2 bg-white/80 hover:bg-[#eee] rounded-full shadow-sm border border-[#ececec] backdrop-blur-md transition-all duration-200"
+        style={{
+          fontWeight: 600,
+          fontSize: 18,
+          color: PRIMARY,
+          cursor: "pointer"
+        }}
+        aria-label="Back"
+      >
+        <ArrowLeft className="w-6 h-6" />
+        <span className="hidden sm:inline">Back</span>
+      </button>
 
-        {/* --- Top Reviewers Section --- */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between px-1 sm:px-2 mb-6 sm:mb-8">
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-[#6D46C6] tracking-tight mb-4 md:mb-0"
-            style={{ textShadow: "0 1px 12px #e8e0ff50" }}>
-            <span role="img" aria-label="trophy">🏆</span> Top Reviewers{" "}
-            <span className="font-light text-[#5EEAD4]">
-              {period === "weekly" ? "This Week" : period === "monthly" ? "Monthly" : "All Time"}
-            </span>
-          </h2>
-          <div className="flex gap-2">
-            {periodTabs.map((tab) => (
-              <button
-                key={tab.key}
-                className={`px-3 sm:px-4 py-1 rounded-full font-semibold transition ${
-                  period === tab.key
-                    ? "bg-[#5EEAD4] text-[#6D46C6] border-2 border-[#6D46C6] scale-105"
-                    : "text-gray-600 border-2 border-[#5EEAD4]"
-                }`}
-                onClick={() => handlePeriodChange(tab.key)}
-                style={{
-                  fontWeight: period === tab.key ? 700 : 500,
-                  fontFamily: "Poppins, sans-serif"
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
+      {/* Hero header */}
+      <div className="relative overflow-hidden pb-4">
+        <div className="absolute inset-0 bg-[#6D46C6] opacity-100" />
+        <div className="relative px-4 sm:px-6 py-10 sm:py-16 text-center">
+          <div className="max-w-2xl sm:max-w-4xl mx-auto">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold text-white mb-4 sm:mb-6 drop-shadow-xl">
+              🏆 Top Reviewers
+            </h1>
+            <p className="text-base sm:text-xl text-[#ece5f4] mb-6 sm:mb-8 max-w-2xl mx-auto font-medium">
+              Celebrating our amazing community members who help businesses grow through authentic reviews.
+            </p>
+            <div className="flex justify-center gap-2 mb-7 sm:mb-8 flex-wrap">
+              {periodTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  className={`px-5 sm:px-7 py-2 rounded-full text-base sm:text-lg font-bold shadow-md border-2 transition-all duration-200
+                    ${period === tab.key
+                      ? "bg-[#5EEAD4] text-[#6D46C6] border-[#6D46C6] scale-105"
+                      : "text-white/80 border-[#5EEAD4] bg-[#6D46C6]"
+                    }`}
+                  onClick={() => handlePeriodChange(tab.key)}
+                  style={{ minWidth: 90 }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Glassmorphic Card Container */}
-        <div className="w-full glass-bg p-5 sm:p-10 rounded-3xl shadow-2xl mb-8 sm:mb-12"
-          style={{ maxWidth: 1100, margin: "0 auto", background: "rgba(255,255,255,0.85)", backdropFilter: "blur(10px)" }}>
-          {renderUserRows(topUsers)}
+      {/* Leaderboard Cards */}
+      <div className="px-1 sm:px-4 pb-10 sm:pb-16" style={{ marginTop: "-50px" }}>
+        <div className="max-w-lg sm:max-w-3xl mx-auto space-y-2 sm:space-y-5">
+          {loading ? (
+            <div className="flex justify-center items-center py-10 sm:py-16">
+              <div className="animate-spin rounded-full border-t-4 border-[#fff] border-opacity-50 h-12 w-12 sm:h-14 sm:w-14"></div>
+            </div>
+          ) : topUsers.length === 0 ? (
+            <div className="text-center text-white/60 py-8 sm:py-10">No reviewers found.</div>
+          ) : (
+            topUsers.map((entry, idx) => (
+              <div
+                key={entry.creatorId}
+                onClick={() => navigate(`/profile/${slugify(entry.creatorName)}`)}
+                className={`
+                  flex items-center px-3 sm:px-7 py-3 sm:py-6 rounded-2xl border transition-all duration-300 cursor-pointer group
+                  bg-white border border-gray-100 leaderboard-card
+                `}
+                style={{
+                  minHeight: 48,
+                  position: "relative",
+                  zIndex: 2,
+                  boxShadow: "0 2px 8px #49208810"
+                }}
+              >
+                {/* Rank Icon */}
+                <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center mr-2 sm:mr-4">
+                  {getRankIcon(idx + 1)}
+                </div>
+                {/* Name and reviews */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-row items-center justify-between">
+                    <h3 className="text-base sm:text-lg md:text-xl font-semibold text-[#261c4d] group-hover:text-[#6D46C6] transition truncate max-w-[120px] sm:max-w-full">
+                      {entry.creatorName}
+                    </h3>
+                    {/* Points (mobile only, right aligned) */}
+                    <span className="block sm:hidden text-xl font-bold text-[#6D46C6]">{entry.points} <span className="text-xs text-[#9377d1] font-semibold">pts</span></span>
+                  </div>
+                  <div className="flex flex-row flex-wrap gap-x-2 gap-y-1 text-[14px] sm:text-[15px] text-[#737373] mt-1 font-medium">
+                    <div className="flex items-center gap-1">
+                      <MessageCircle className="w-4 h-4" />
+                      <span>
+                        {entry.reviewCount} {entry.reviewCount === 1 ? "review" : "reviews"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {/* Points (desktop/tablet) */}
+                <div className="hidden sm:flex flex-col items-end pr-2">
+                  <span className="text-2xl md:text-3xl font-bold text-[#6D46C6] leading-5">{entry.points}</span>
+                  <span className="text-sm text-[#9377d1] font-semibold" style={{marginTop: "-1px"}}>points</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
-      {/* CTA: Full screen, purple background */}
+      {/* CTA Section */}
       <div
         className="w-full flex flex-col items-center justify-center"
         style={{
-          minHeight: "44vh",
+          minHeight: "30vh",
           width: "100vw",
-          background: PRIMARY,
-          color: "#CBC3E3",
-          marginTop: 36,
-          padding: "42px 0 42px 0"
+          background: MINT,
+          color: "#24292F",
+          marginTop: 24,
+          padding: "22px 0 30px 0"
         }}
       >
-        <h3 className="text-xl sm:text-3xl font-extrabold flex items-center justify-center gap-2 mb-4 text-white" style={{ letterSpacing: ".5px" }}>
+        <h3 className="text-lg sm:text-2xl font-extrabold flex items-center justify-center gap-2 mb-2 sm:mb-3 text-[#24292F]" style={{ letterSpacing: ".5px" }}>
           🚀 Want to start reviewing too?
         </h3>
-        <p className="text-base sm:text-lg mb-5 sm:mb-6 text-white/90 text-center max-w-xs sm:max-w-2xl font-medium">
+        <p className="text-sm sm:text-base mb-4 sm:mb-5 text-[#274046] text-center max-w-xs sm:max-w-2xl font-medium">
           Join our community of reviewers and share your experiences with others.<br />
           It's as easy as sending a WhatsApp message!
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 flex-wrap justify-center mb-3 w-full px-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 flex-wrap justify-center mb-3 w-full px-4">
           <a
             href="https://api.whatsapp.com/message/XVZR77KDFQMHI1"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-[#5EEAD4] hover:bg-[#b2ffe0] text-[#6D46C6] px-8 py-3 rounded-full text-lg font-bold transition shadow text-center"
-            style={{ minWidth: 170 }}
+            className="bg-[#6D46C6] hover:bg-[#5931a8] text-[#fff] px-7 py-3 rounded-full text-base sm:text-lg font-bold transition shadow text-center"
+            style={{ minWidth: 140 }}
           >
             🚀 Try Uplaud
           </a>
           <button
             onClick={() => navigate('/login')}
-            className="px-8 py-3 border-2 border-white text-white rounded-full text-lg font-bold hover:bg-[#5EEAD4]/20 transition text-center"
-            style={{ minWidth: 170 }}
+            className="px-7 py-3 border-2 border-[#6D46C6] text-[#6D46C6] rounded-full text-base sm:text-lg font-bold hover:bg-[#fff]/20 transition text-center"
+            style={{ minWidth: 140 }}
           >
             Login
           </button>
         </div>
-        <p className="text-white/60 text-sm mt-2 text-center w-full px-3">
+        <p className="text-[#222f3e] text-xs sm:text-sm mt-2 text-center w-full px-3 opacity-70">
           No app download required — start reviewing in seconds.
         </p>
       </div>
 
+      {/* Card pop/glow animation on hover */}
       <style>{`
-        .glass-bg {
-          background: rgba(255,255,255,0.7);
-          backdrop-filter: blur(13px) saturate(1.13);
+        .leaderboard-card {
+          transition: box-shadow 0.24s cubic-bezier(.4,0,.2,1), transform 0.22s cubic-bezier(.4,0,.2,1);
+        }
+        .leaderboard-card:hover {
+          box-shadow: 0 4px 32px 6px #6D46C6, 0 0 2px #fff;
+          transform: scale(1.045);
+          z-index: 10;
         }
       `}</style>
     </div>
