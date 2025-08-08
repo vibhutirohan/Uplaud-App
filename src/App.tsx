@@ -33,7 +33,7 @@ const App = () => (
             <Route path="/" element={<ReviewerList />} />
             <Route path="/profile/:id" element={<ProfilePage />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/:handle" element={<Dashboard />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/verify-otp" element={<VerifyOtp />} />

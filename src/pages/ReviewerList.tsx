@@ -11,7 +11,7 @@ const REVIEWS_TABLE = 'tblef0n1hQXiKPHxI';
 const CIRCLES_TABLE = 'tbldL8H5T4qYKUzLV';
 
 const COMPANY_USERS = [
-  "Deepthi Rao", "Rohan", "Rohan Vibhuti ", "Shreya Shinde", "Gargi", "Pranali", "Vansh Desai", "Hitanshi"
+  "Deepthi Rao","Deepthi","Rohan", "Rohan Vibhuti ", "Shreya Shinde", "Gargi", "Pranali Gole","Pranali", "Vansh Desai", "Hitanshi Dhaktode"
 ];
 
 function isValidName(name = "") {
