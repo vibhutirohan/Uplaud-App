@@ -1,15 +1,21 @@
 import React, { useEffect, useState } from "react";
 import {
-  Star, ClipboardList, Zap, Calendar, MapPin, ArrowLeft, Share2, BarChart2
+  Star, ClipboardList, Zap, Calendar, MapPin, ArrowLeft, Share2, BarChart2, Trophy, Lock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+
+// shadcn/ui
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Airtable Config
 const API_KEY = 'patZS8GyNhkwoP4wY.2beddc214f4dd2a5e4c220ae654f62652a5e02a47bae2287c54fced7bb97c07e';
 const BASE_ID = 'appFUJWWTaoJ3YiWt';
 const REVIEWS_TABLE = 'tblef0n1hQXiKPHxI';
 
+// -------------------- Utilities --------------------
 function slugify(name = "") {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 }
@@ -25,7 +31,7 @@ function emojiForScore(score) {
   if (score === 2) return "😐";
   return "😶";
 }
-// ---- NEW! Avatar only shows first letter of first word ----
+// Avatar: first letter only (Dashboard behavior)
 function getBusinessInitials(name = "") {
   if (!name) return "";
   let words = name.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean);
@@ -36,6 +42,170 @@ function getWhatsAppShareLinkForReview(review, userName) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
+// -------------------- Achievements (copied from ProfilePage) --------------------
+const BADGES = [
+  {
+    key: "fresh_voice",
+    label: "Fresh Voice",
+    description: "Submit your first review",
+    image: "Fresh_Voice.png",
+    progress: user => ({
+      current: user.reviews.length,
+      total: 1,
+      isEarned: user.reviews.length >= 1
+    })
+  },
+  {
+    key: "glow_getter",
+    label: "Glow Getter",
+    description: "Submit 10+ reviews",
+    image: "Glow_Getter.png",
+    progress: user => ({
+      current: Math.min(user.reviews.length, 10),
+      total: 10,
+      isEarned: user.reviews.length >= 10
+    })
+  },
+  {
+    key: "vibe_curator",
+    label: "Vibe Curator",
+    description: "Submit reviews in 5+ different categories",
+    image: "Vibe_Curator.png",
+    progress: user => {
+      const catCount = new Set(user.reviews.map(r => (r.category || "").toLowerCase())).size;
+      return {
+        current: Math.min(catCount, 5),
+        total: 5,
+        isEarned: catCount >= 5
+      };
+    }
+  },
+  {
+    key: "cultural_explorer",
+    label: "Cultural Explorer",
+    description: "10+ reviews in Museums/Nature categories",
+    image: "Cultural_Explorer.png",
+    progress: user => {
+      const count = user.reviews.filter(r =>
+        ["museum", "nature"].includes((r.category || "").toLowerCase())
+      ).length;
+      return {
+        current: Math.min(count, 10),
+        total: 10,
+        isEarned: count >= 10
+      };
+    }
+  },
+  {
+    key: "squad_initiator",
+    label: "Squad Initiator",
+    description: "Refer 1 friend who joins & reviews",
+    image: "Squad_Initiator.png",
+    progress: user => ({
+      current: Math.min(user.referralCount, 1),
+      total: 1,
+      isEarned: user.referralCount >= 1
+    })
+  },
+  {
+    key: "squad_leader",
+    label: "Squad Leader",
+    description: "5+ successful referrals",
+    image: "Squad_Leader.png",
+    progress: user => ({
+      current: Math.min(user.referralCount, 5),
+      total: 5,
+      isEarned: user.referralCount >= 5
+    })
+  },
+  {
+    key: "streak_star",
+    label: "Streak Star",
+    description: "Review for 7 consecutive days",
+    image: "Streak_Star.png",
+    progress: user => {
+      const days = [...new Set(user.reviews.map(r => {
+        const d = r.date instanceof Date ? r.date : (r.date ? new Date(r.date) : null);
+        return d && !isNaN(d.getTime()) ? d.toDateString() : null;
+      }).filter(Boolean))]
+        .map(d => new Date(d))
+        .sort((a, b) => a - b);
+
+      let streak = 1, maxStreak = 1;
+      for (let i = 1; i < days.length; i++) {
+        if ((days[i] - days[i - 1]) === 24 * 3600 * 1000) {
+          streak++;
+          maxStreak = Math.max(maxStreak, streak);
+        } else {
+          streak = 1;
+        }
+      }
+      return {
+        current: Math.min(maxStreak, 7),
+        total: 7,
+        isEarned: maxStreak >= 7
+      };
+    }
+  },
+  {
+    key: "viral_star",
+    label: "Viral Star",
+    description: "10+ referrals in 1 week",
+    image: "Viral_Star.png",
+    progress: user => {
+      if (!user.myReferrals || user.myReferrals.length < 10)
+        return { current: 0, total: 10, isEarned: false };
+
+      const refDates = user.myReferrals
+        .map(ref => ref.date ? new Date(ref.date) : null)
+        .filter(Boolean)
+        .sort((a, b) => a - b);
+
+      let earned = false;
+      for (let i = 0; i <= refDates.length - 10; i++) {
+        const start = refDates[i];
+        const end = refDates[i + 9];
+        if ((end - start) <= 7 * 24 * 3600 * 1000) {
+          earned = true; break;
+        }
+      }
+      return {
+        current: Math.min(user.myReferrals.length, 10),
+        total: 10,
+        isEarned: earned
+      };
+    }
+  }
+];
+
+const getGenderFolder = (gender) => {
+  if (!gender) return "Male";
+  if (gender.toLowerCase().startsWith("f")) return "Female";
+  return "Male";
+};
+
+function getAchievements(user, reviews, referralCount, myReferrals) {
+  const gender = getGenderFolder(user?.gender || user?.Gender);
+  const userObj = {
+    ...user,
+    reviews: reviews || [],
+    referralCount: referralCount || 0,
+    myReferrals: myReferrals || [],
+  };
+  return BADGES.map(badge => {
+    const p = badge.progress(userObj);
+    return {
+      id: badge.key,
+      name: badge.label,
+      description: badge.description,
+      image: `/badges/${gender}/${badge.image}`,
+      isEarned: p.isEarned,
+      progress: p,
+    };
+  });
+}
+
+// -------------------- Small UI atoms --------------------
 const BigStat = ({ icon, label, value, color }) => {
   const bg = {
     yellow: 'bg-yellow-50 text-yellow-700',
@@ -57,7 +227,7 @@ const BigStat = ({ icon, label, value, color }) => {
   );
 };
 
-// ----------- Review Card -----------
+// -------------------- Review Card --------------------
 function ReviewCard({ review, userName, navigate }) {
   if (!review.businessName && !review.business_name) return null;
   const score = Number(review.score || review['Uplaud Score']);
@@ -77,7 +247,7 @@ function ReviewCard({ review, userName, navigate }) {
       }}
     >
       <div className="flex items-start w-full">
-        {/* Avatar: always ONE letter */}
+        {/* Avatar: one letter */}
         <div
           className="rounded-full flex items-center justify-center font-bold uppercase review-biz-avatar"
           style={{
@@ -99,7 +269,6 @@ function ReviewCard({ review, userName, navigate }) {
         </div>
         {/* Review content */}
         <div className="flex-1 w-full min-w-0">
-          {/* Top Row: Business Name, Date */}
           <div className="flex w-full items-center gap-2 flex-wrap justify-between">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               <span
@@ -121,7 +290,6 @@ function ReviewCard({ review, userName, navigate }) {
               {formatDate(date)}
             </span>
           </div>
-          {/* Review Text + Star Rating */}
           <div
             className="rounded-xl border px-4 py-3 text-gray-900 shadow-sm text-base font-medium break-words flex items-center"
             style={{ background: "#DCF8C6", fontFamily: "inherit", marginTop: 4 }}
@@ -141,7 +309,6 @@ function ReviewCard({ review, userName, navigate }) {
               ) : null}
             </span>
           </div>
-          {/* Share Button */}
           <div className="flex w-full">
             <button
               onClick={() => window.open(shareUrl, "_blank")}
@@ -158,7 +325,7 @@ function ReviewCard({ review, userName, navigate }) {
   );
 }
 
-// ----------- Dashboard -----------
+// -------------------- Dashboard --------------------
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -167,8 +334,9 @@ const Dashboard = () => {
   const [reviews, setReviews] = useState([]);
   const [showAllReviews, setShowAllReviews] = useState(false);
 
-  // Stats
-  const [referralCount] = useState(0); // Placeholder
+  // Stats & referral placeholders (wire up later if you track referrals)
+  const [referralCount] = useState(0);
+  const [myReferrals] = useState([]); // keep shape for badge logic
 
   useEffect(() => {
     const fetchUserAndReviews = async () => {
@@ -184,19 +352,34 @@ const Dashboard = () => {
         const { data } = await axios.get(url, {
           headers: { Authorization: `Bearer ${API_KEY}` }
         });
-        const records = data.records.map(rec => ({
-          ...rec.fields,
-          date: rec.fields.Date_Added
-        }));
+
+        // Normalize reviews to include 'category' + Date object for achievements logic
+        const records = data.records.map(rec => {
+          const f = rec.fields || {};
+          return {
+            ...f,
+            businessName: f.business_name || f.businessName,
+            uplaud: f.Uplaud || f.uplaud,
+            score: Number(f["Uplaud Score"] || f.score || 0),
+            category: f.Category || "Other",
+            date: f.Date_Added ? new Date(f.Date_Added) : null
+          };
+        }).filter(r => r.businessName && r.uplaud);
+
         setReviews(records);
 
         // Build user object
         let name = records[0]?.Name_Creator || records[0]?.Reviewer || "User";
         if (Array.isArray(name)) name = name[0];
         const handle = slugify(name);
+
+        // You can attach gender here if present in reviews (default Male for badge path)
+        const gender = records[0]?.Gender || "Male";
+
         setUser({
           name: name,
           handle: handle,
+          gender: gender,
           image: records[0]?.['Creator Image'] || null,
           location: [records[0]?.City, records[0]?.State].filter(Boolean).join(', '),
           bio: records[0]?.Internal || "",
@@ -215,15 +398,19 @@ const Dashboard = () => {
   const points = reviews.length * 10 + referralCount * 20;
   const totalReviews = reviews.length;
   const averageScore = reviews.length
-    ? (reviews.reduce((sum, r) => sum + (Number(r['Uplaud Score'] || r.score || 0)), 0) / reviews.length).toFixed(2)
+    ? (reviews.reduce((sum, r) => sum + (Number(r.score || 0)), 0) / reviews.length).toFixed(2)
     : "-";
 
   // Category breakdown for analytics
   const categories = {};
   reviews.forEach(r => {
-    const cat = r.Category || "Other";
+    const cat = r.category || r.Category || "Other";
     categories[cat] = (categories[cat] || 0) + 1;
   });
+
+  // Achievements
+  const achievements = getAchievements(user, reviews, referralCount, myReferrals);
+  const earnedCount = achievements.filter(a => a.isEarned).length;
 
   if (loading) return <div className="flex justify-center items-center h-80 text-lg">Loading…</div>;
   if (!user) return <div className="text-center mt-12 text-xl text-gray-600">User not found. Please log in again.</div>;
@@ -249,6 +436,7 @@ const Dashboard = () => {
         <ArrowLeft className="w-5 h-5" />
         <span className="hidden sm:inline">Back</span>
       </button>
+
       <div className="max-w-5xl mx-auto space-y-8 relative z-10 pt-16 sm:pt-0 px-3 sm:px-0">
         {/* Profile Card */}
         <div className="shadow-lg rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6 border mt-6" style={{ background: "#FFF7E6", fontFamily: "inherit" }}>
@@ -291,7 +479,6 @@ const Dashboard = () => {
                 </div>
                 <button
                   onClick={() => {
-                    if (!user) return;
                     const url = `${window.location.origin}/profile/${user.handle}`;
                     const message = `Check out ${user.name}'s Uplaud profile!\n${url}`;
                     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
@@ -306,6 +493,112 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* -------- Achievements Section (same as ProfilePage) -------- */}
+        <Card
+          className="shadow-[var(--shadow-elegant)] border-uplaud-purple-light/20 mb-5 mt-2 w-full"
+          style={{
+            background: "#FFF7E6",
+            border: "1px solid #f5e7d6",
+            boxShadow: "0 2px 16px 0 #dfc6a9a6, 0 2px 8px #dfc6a966",
+            fontFamily: "inherit",
+            transition: "background 0.22s",
+            minHeight: 180,
+          }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-uplaud-purple to-uplaud-purple-light">
+              <Trophy className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Achievements</h3>
+              <p className="text-xs text-muted-foreground">
+                {earnedCount} of {achievements.length} badges earned
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
+            <TooltipProvider>
+              {achievements.map((achievement) => (
+                <Tooltip key={achievement.id}>
+                  <TooltipTrigger asChild>
+                    <div className="group cursor-pointer" style={{ minWidth: 80, maxWidth: 120 }}>
+                      <div
+                        className={`
+                          relative aspect-square rounded-xl overflow-hidden transition-all duration-300
+                          ${achievement.isEarned
+                          ? 'shadow-[var(--shadow-badge)] hover:scale-105 animate-scale-in'
+                          : 'opacity-50 grayscale hover:grayscale-0 hover:opacity-75'
+                          }
+                        `}
+                        style={{ width: 80, height: 80, margin: "0 auto" }}
+                      >
+                        <img
+                          src={achievement.image}
+                          alt={achievement.name}
+                          className="w-full h-full object-contain"
+                        />
+                        {!achievement.isEarned && (
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <Lock className="w-6 h-6 text-white/80" />
+                          </div>
+                        )}
+                        {achievement.isEarned && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-uplaud-green rounded-full border-2 border-white flex items-center justify-center">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-1 text-center">
+                        <p className="text-[11px] font-semibold text-foreground leading-tight truncate">
+                          {achievement.name}
+                        </p>
+                        {achievement.progress && !achievement.isEarned && (
+                          <div className="mt-1">
+                            <div className="w-full bg-muted rounded-full h-1">
+                              <div
+                                className="bg-gradient-to-r from-uplaud-purple to-uplaud-purple-light h-1 rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${(achievement.progress.current / achievement.progress.total) * 100}%`
+                                }}
+                              />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              {achievement.progress.current}/{achievement.progress.total}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    side="bottom"
+                    className="max-w-xs border"
+                    style={{
+                      background: "#fff",
+                      color: "#23223b",
+                      borderColor: "#b39ddb",
+                      fontSize: 13,
+                      boxShadow: "0 4px 32px 0 #a89ff511, 0 2px 8px #bbb1f666",
+                    }}
+                  >
+                    <div className="text-center">
+                      <p className="font-semibold">{achievement.name}</p>
+                      <p className="text-xs opacity-90 mt-1">{achievement.description}</p>
+                      {achievement.progress && !achievement.isEarned && (
+                        <Badge variant="secondary" className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
+                          {achievement.progress.current}/{achievement.progress.total} progress
+                        </Badge>
+                      )}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </TooltipProvider>
+          </div>
+        </Card>
+
         {/* Tabs: Reviews | Analytics */}
         <div className="rounded-2xl shadow p-4 border" style={{ background: "#FFF7E6", fontFamily: "inherit" }}>
           <div className="flex gap-6 border-b mb-6 text-base font-semibold" style={{ fontFamily: "inherit" }}>
@@ -324,7 +617,7 @@ const Dashboard = () => {
               Activity
             </button>
           </div>
-          {/* --- REVIEWS TAB --- */}
+
           {activeTab === "Reviews" && (
             <div style={{ fontFamily: "inherit" }}>
               {loading ? (
@@ -338,7 +631,6 @@ const Dashboard = () => {
                       <ReviewCard key={idx} review={review} userName={user.name} navigate={navigate} />
                     ))}
                   </div>
-                  {/* Load More/Less Button */}
                   {reviews.length > 5 && (
                     <div className="flex justify-center mt-6">
                       <button
@@ -354,7 +646,7 @@ const Dashboard = () => {
               )}
             </div>
           )}
-          {/* --- ANALYTICS TAB --- */}
+
           {activeTab === "Analytics" && (
             <div style={{ fontFamily: "inherit" }}>
               <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-black">
@@ -368,20 +660,7 @@ const Dashboard = () => {
                 <div className="font-semibold text-gray-700">Average Score:</div>
                 <div className="text-lg font-bold text-cyan-600">{averageScore} / 5</div>
               </div>
-              <div className="mb-6">
-                <div className="font-semibold text-gray-700 mb-1">Reviews by Category:</div>
-                <div className="flex flex-wrap gap-2">
-                  {Object.keys(categories).length === 0 ? (
-                    <span className="text-xs ml-2 px-2 py-1 bg-gray-100 rounded-full text-gray-500">No reviews</span>
-                  ) : (
-                    Object.entries(categories).map(([cat, count]) => (
-                      <span key={cat} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded-full">
-                        {cat}: {count}
-                      </span>
-                    ))
-                  )}
-                </div>
-              </div>
+              
               <div className="mb-6">
                 <div className="font-semibold text-gray-700 mb-1">Your Referrals</div>
                 <div className="text-gray-400">No referral data tracked in dashboard.</div>
@@ -390,6 +669,8 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Styles */}
       <style>{`
         body { background: #6D46C6 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
         .business-hover-underline {

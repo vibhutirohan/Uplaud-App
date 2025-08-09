@@ -193,6 +193,10 @@ function getBusinessInitials(name = "") {
   if (words.length >= 2) return words.slice(0, 3).map(w => w[0].toUpperCase()).join("");
   return name.replace(/[^A-Za-z0-9]/g, "").substring(0, 3).toUpperCase();
 }
+function getFirstLetter(name = "") {
+  const n = (name || "").trim();
+  return n ? n[0].toUpperCase() : "";
+}
 function getWhatsAppShareLink(user) {
   let phone = user?.autogenInvite || "";
   const urlMatch = phone.match(/(?:wa\.me\/|\/)(\d{10,15})/);
@@ -493,6 +497,7 @@ const ProfilePage = () => {
       ? `Hey, check out this Real Review for ${review.businessName} on Uplaud. It’s a platform where real people give honest reviews on WhatsApp: ${review.referralLink}`
       : `Show me ${user?.name || "User"}'s review for ${review.businessName}`;
     const shareUrl = `https://wa.me/?text=${encodeURIComponent(whatsappText)}`;
+
     return (
       <div
         className="review-card-mobile flex rounded-2xl px-3 py-4 shadow group transition hover:shadow-xl mb-3"
@@ -504,6 +509,7 @@ const ProfilePage = () => {
         }}
       >
         <div className="flex items-start w-full">
+          {/* Left avatar */}
           <div
             className="rounded-full flex items-center justify-center font-bold uppercase review-biz-avatar"
             style={{
@@ -527,28 +533,51 @@ const ProfilePage = () => {
               {getBusinessInitials(review.businessName)}
             </span>
           </div>
+
+          {/* Right content */}
           <div className="flex-1 w-full min-w-0">
+            {/* Top row: Business name + date */}
             <div className="flex w-full items-center gap-2 flex-wrap justify-between">
               <div className="flex items-center gap-2 min-w-0 flex-1">
+                {/* Mobile: show ONLY the first letter, always visible */}
                 <span
-                  className="font-semibold text-base text-black cursor-pointer business-hover-underline"
+                  className="font-semibold text-base text-black cursor-pointer sm:hidden"
+                  onClick={() => navigate(`/business/${slugify(review.businessName)}`)}
+                  title={review.businessName}
+                  aria-label={review.businessName}
+                  style={{
+                    lineHeight: 1.18,
+                    fontFamily: "inherit",
+                    minWidth: 14,
+                    display: "inline-block"
+                  }}
+                >
+                  {getFirstLetter(review.businessName)}
+                </span>
+
+                {/* sm+ : show full business name with underline hover */}
+                <span
+                  className="hidden sm:inline font-semibold text-base text-black cursor-pointer business-hover-underline"
                   onClick={() => navigate(`/business/${slugify(review.businessName)}`)}
                   tabIndex={0}
+                  title={review.businessName}
                   style={{
                     lineHeight: 1.18,
                     fontFamily: "inherit",
                     minWidth: 0,
-                    flex: "1 1 auto",
                     wordBreak: "break-word"
                   }}
                 >
                   {review.businessName}
                 </span>
               </div>
+
               <span className="text-gray-500 text-xs font-medium whitespace-nowrap" style={{ flexShrink: 0 }}>
                 {formatDate(review.date)}
               </span>
             </div>
+
+            {/* Review text + stars */}
             <div
               className="rounded-xl border px-4 py-3 text-gray-900 shadow-sm text-base font-medium break-words flex items-center"
               style={{ background: "#DCF8C6", fontFamily: "inherit", marginTop: 4 }}
@@ -568,6 +597,8 @@ const ProfilePage = () => {
                 ) : null}
               </span>
             </div>
+
+            {/* Share */}
             <div className="flex w-full">
               <button
                 onClick={() => window.open(shareUrl, "_blank")}
@@ -604,7 +635,7 @@ const ProfilePage = () => {
         }}
       >
         <ArrowLeft className="w-5 h-5" />
-        <span className="hidden sm:inline">Back to Leaderboard</span>
+        <span className="hidden sm:inline">Back</span>
       </button>
 
       <div className="max-w-4xl mx-auto space-y-8 relative z-10 pt-16 sm:pt-0 px-2 sm:px-0">
@@ -857,6 +888,7 @@ const ProfilePage = () => {
           )}
         </div>
       </div>
+
       <style>{`
         body { background: #6D46C6 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
         .business-hover-underline { transition: color 0.2s; position: relative; }
