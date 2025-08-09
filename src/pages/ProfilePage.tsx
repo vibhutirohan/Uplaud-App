@@ -193,10 +193,6 @@ function getBusinessInitials(name = "") {
   if (words.length >= 2) return words.slice(0, 3).map(w => w[0].toUpperCase()).join("");
   return name.replace(/[^A-Za-z0-9]/g, "").substring(0, 3).toUpperCase();
 }
-function getFirstLetter(name = "") {
-  const n = (name || "").trim();
-  return n ? n[0].toUpperCase() : "";
-}
 function getWhatsAppShareLink(user) {
   let phone = user?.autogenInvite || "";
   const urlMatch = phone.match(/(?:wa\.me\/|\/)(\d{10,15})/);
@@ -539,25 +535,9 @@ const ProfilePage = () => {
             {/* Top row: Business name + date */}
             <div className="flex w-full items-center gap-2 flex-wrap justify-between">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                {/* Mobile: show ONLY the first letter, always visible */}
+                {/* Single name (visible on all breakpoints, truncates on tiny screens) */}
                 <span
-                  className="font-semibold text-base text-black cursor-pointer sm:hidden"
-                  onClick={() => navigate(`/business/${slugify(review.businessName)}`)}
-                  title={review.businessName}
-                  aria-label={review.businessName}
-                  style={{
-                    lineHeight: 1.18,
-                    fontFamily: "inherit",
-                    minWidth: 14,
-                    display: "inline-block"
-                  }}
-                >
-                  {getFirstLetter(review.businessName)}
-                </span>
-
-                {/* sm+ : show full business name with underline hover */}
-                <span
-                  className="hidden sm:inline font-semibold text-base text-black cursor-pointer business-hover-underline"
+                  className="font-semibold text-base text-black cursor-pointer business-hover-underline truncate"
                   onClick={() => navigate(`/business/${slugify(review.businessName)}`)}
                   tabIndex={0}
                   title={review.businessName}
@@ -565,7 +545,8 @@ const ProfilePage = () => {
                     lineHeight: 1.18,
                     fontFamily: "inherit",
                     minWidth: 0,
-                    wordBreak: "break-word"
+                    maxWidth: "100%",
+                    display: "inline-block"
                   }}
                 >
                   {review.businessName}
