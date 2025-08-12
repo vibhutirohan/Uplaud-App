@@ -187,12 +187,6 @@ function emojiForScore(score) {
   if (score === 2) return "😐";
   return "😶";
 }
-function getBusinessInitials(name = "") {
-  if (!name) return "";
-  let words = name.replace(/[^A-Za-z0-9 ]/g, "").split(" ").filter(Boolean);
-  if (words.length >= 2) return words.slice(0, 3).map(w => w[0].toUpperCase()).join("");
-  return name.replace(/[^A-Za-z0-9]/g, "").substring(0, 3).toUpperCase();
-}
 function getWhatsAppShareLink(user) {
   let phone = user?.autogenInvite || "";
   const urlMatch = phone.match(/(?:wa\.me\/|\/)(\d{10,15})/);
@@ -202,7 +196,7 @@ function getWhatsAppShareLink(user) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 }
 
-// --- helpers for last-3 logic ---
+// helpers for last-3
 const digitsOnly = (s="") => (s || "").toString().replace(/\D/g, "");
 const last3 = (s="") => {
   const d = digitsOnly(s);
@@ -228,23 +222,22 @@ async function fetchLast3FromReviews(foundUser) {
   }
 }
 
-const BigStat = ({ icon, label, value, color }) => {
-  const bg = {
-    yellow: 'bg-yellow-50 text-yellow-700',
-    purple: 'bg-purple-50 text-purple-700',
-    pink: 'bg-pink-50 text-pink-700',
-  }[color];
-  return (
-    <div
-      className={`flex flex-col items-center justify-center px-6 py-4 rounded-2xl font-bold shadow-sm border ${bg} stat-card stat-hover`}
-      style={{ minWidth: 120, minHeight: 86, margin: '0 0.5rem' }}
-      tabIndex={0}
-    >
-      <div className="flex items-center gap-2">
-        <span>{icon}</span>
-        <span className="text-2xl font-extrabold">{value}</span>
+// Compact stats strip (one card, 3 segments)
+const StatsStrip = ({ totalReviews, points, referralCount }) => {
+  const Item = ({ icon, label, value }) => (
+    <div className="stats-seg flex-1 min-w-0 py-3 sm:py-4 px-2 sm:px-4 text-center border rounded-xl bg-white/85 backdrop-blur-sm">
+      <div className="flex items-center justify-center gap-2">
+        {icon}
+        <span className="stat-value font-extrabold">{value}</span>
       </div>
-      <div className="mt-1 text-base font-semibold text-gray-600" style={{ letterSpacing: 0.3 }}>{label}</div>
+      <div className="stat-label mt-1 font-semibold text-gray-600">{label}</div>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:gap-4">
+      <Item icon={<Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />} label="Reviews" value={totalReviews} />
+      <Item icon={<Zap className="w-4 h-4 sm:w-5 sm:h-5 text-purple-700" />} label="Points" value={points} />
+      <Item icon={<ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-pink-700" />} label="Referrals" value={referralCount} />
     </div>
   );
 };
@@ -265,13 +258,12 @@ const ProfilePage = () => {
     const fetchUserAndReviews = async () => {
       setLoading(true);
       try {
-        // parse /profile/<slugified-name>-<last3> (last3 optional for legacy)
         const idParam = (id || "").trim();
         const m = idParam.match(/^(.+?)(?:-(\d{3}))?$/);
         const targetBase = m ? m[1] : idParam;
         const targetSuffix = m && m[2] ? m[2] : null;
 
-        // --- Fetch User (paged) ---
+        // Fetch User (paged)
         let foundUser = null;
         let userOffset = undefined;
 
@@ -281,7 +273,6 @@ const ProfilePage = () => {
             { headers: { Authorization: `Bearer ${API_KEY}` }, params: { pageSize: 100, offset: userOffset } }
           );
 
-          // candidates with matching base slug or legacy id
           const candidates = userResp.data.records.filter(rec => {
             const name = rec.fields.Name || "";
             return slugify(name) === targetBase || slugify(name) === idParam;
@@ -304,12 +295,10 @@ const ProfilePage = () => {
             const baseSlug = slugify(name);
             let l3 = last3(candidate.phone);
             if (!l3 || l3 === "000") {
-              // try reviews fallback
               l3 = await fetchLast3FromReviews({ id: candidate.id, name: candidate.name });
             }
             const canonical = `${baseSlug}-${l3 || "000"}`;
 
-            // If URL has suffix, require exact; otherwise accept and redirect later
             const isExact = targetSuffix ? (canonical === idParam) : (baseSlug === targetBase);
             if (isExact) {
               foundUser = { ...candidate, handle: baseSlug, canonicalSlug: canonical };
@@ -321,7 +310,6 @@ const ProfilePage = () => {
           if (!userOffset) break;
         }
 
-        // If we found a user but URL is not canonical, redirect to /profile/<slug>-<last3>
         if (foundUser) {
           const currentIsCanonical = idParam === foundUser.canonicalSlug;
           if (!currentIsCanonical) {
@@ -331,7 +319,7 @@ const ProfilePage = () => {
 
         setUser(foundUser);
 
-        // --- Fetch Reviews ---
+        // Reviews
         let allReviews = [];
         if (foundUser) {
           let offset = undefined;
@@ -384,7 +372,7 @@ const ProfilePage = () => {
           setReviews([]);
         }
 
-        // --- Referrals Count ---
+        // Referrals Count
         let uniqueReferralPairs = new Set();
         if (foundUser && foundUser.name) {
           let circles = [];
@@ -413,7 +401,7 @@ const ProfilePage = () => {
           setReferralCount(0);
         }
 
-        // --- My Referrals (Delivered/Read) ---
+        // My Referrals list (kept but without status chips in UI)
         if (foundUser && foundUser.name) {
           let circles = [];
           let offset = undefined;
@@ -476,16 +464,20 @@ const ProfilePage = () => {
   const averageScore = reviews.length
     ? (reviews.reduce((sum, r) => sum + (r.score || 0), 0) / reviews.length).toFixed(2)
     : "-";
-  let joinDate = "";
-  if (reviews.length > 0 && reviews[reviews.length - 1].date) {
-    joinDate = formatDate(reviews[reviews.length - 1].date);
-  } else {
-    joinDate = "—";
-  }
+  const joinDate = (reviews.length > 0 && reviews[reviews.length - 1].date)
+    ? formatDate(reviews[reviews.length - 1].date)
+    : "—";
 
-  // ACHIEVEMENTS for this user
+  // Achievements
   const achievements = getAchievements(user, reviews, referralCount, myReferrals);
-  const earnedCount = achievements.filter(a => a.isEarned).length;
+  const earnedAchievements = achievements.filter(a => a.isEarned);
+  const lockedAchievements = achievements.filter(a => !a.isEarned);
+
+  // For “Next up”
+  const nextUp = [...lockedAchievements]
+    .map(b => ({ ...b, pct: b.progress?.total ? (b.progress.current / b.progress.total) : 0 }))
+    .sort((a, b) => b.pct - a.pct)
+    .slice(0, 3);
 
   function ReviewCard({ review }) {
     if (!review.businessName || !review.uplaud) return null;
@@ -496,90 +488,51 @@ const ProfilePage = () => {
 
     return (
       <div
-        className="review-card-mobile flex rounded-2xl px-3 py-4 shadow group transition hover:shadow-xl mb-3"
+        className="flex rounded-2xl px-3 py-4 shadow group transition hover:shadow-xl mb-3 border"
         style={{
           alignItems: "flex-start",
-          background: "#FFF7E6",
+          background: "rgba(255,255,255,0.70)",
+          backdropFilter: "blur(6px)",
           fontFamily: "inherit",
           position: "relative"
         }}
       >
         <div className="flex items-start w-full">
-          {/* Left avatar */}
-          <div
-            className="rounded-full flex items-center justify-center font-bold uppercase review-biz-avatar"
-            style={{
-              width: 44, height: 44, border: "2px solid #6D46C6",
-              color: "#6D46C6", background: "#F4EFFF", letterSpacing: 1,
-              marginRight: 13, fontSize: "1.10rem", fontFamily: "inherit",
-              boxShadow: "0 2px 10px 0 #6d46c61a"
-            }}
-            tabIndex={0}
-            onClick={() => navigate(`/business/${slugify(review.businessName)}`)}
-            title={review.businessName}
-          >
-            <span
-              style={{
-                width: "100%", textAlign: "center", fontWeight: 700,
-                fontSize: review.businessName.length > 12 ? "0.92rem" : "1.08rem",
-                letterSpacing: "1.5px", wordBreak: "break-all",
-                lineHeight: "44px", fontFamily: "inherit"
-              }}
-            >
-              {getBusinessInitials(review.businessName)}
-            </span>
-          </div>
-
-          {/* Right content */}
           <div className="flex-1 w-full min-w-0">
-            {/* Top row: Business name + date */}
+            {/* Top row: Business name + stars/emoji + date */}
             <div className="flex w-full items-center gap-2 flex-wrap justify-between">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                {/* Single name (visible on all breakpoints, truncates on tiny screens) */}
                 <span
-                  className="font-semibold text-base text-black cursor-pointer business-hover-underline truncate"
+                  className="font-semibold text-base text-black cursor-pointer truncate business-hover-underline"
                   onClick={() => navigate(`/business/${slugify(review.businessName)}`)}
                   tabIndex={0}
                   title={review.businessName}
-                  style={{
-                    lineHeight: 1.18,
-                    fontFamily: "inherit",
-                    minWidth: 0,
-                    maxWidth: "100%",
-                    display: "inline-block"
-                  }}
+                  style={{ lineHeight: 1.18, fontFamily: "inherit", minWidth: 0, maxWidth: "100%", display: "inline-block" }}
                 >
                   {review.businessName}
                 </span>
               </div>
+
+              {/* Stars + Emoji BEFORE date */}
+              <span className="text-yellow-500 text-sm flex items-center gap-1 flex-shrink-0">
+                {Array.from({ length: review.score }).map((_, i) => (
+                  <span key={i}>★</span>
+                ))}
+                {review.score ? <span className="text-lg leading-none">{emojiForScore(review.score)}</span> : null}
+              </span>
 
               <span className="text-gray-500 text-xs font-medium whitespace-nowrap" style={{ flexShrink: 0 }}>
                 {formatDate(review.date)}
               </span>
             </div>
 
-            {/* Review text + stars */}
             <div
-              className="rounded-xl border px-4 py-3 text-gray-900 shadow-sm text-base font-medium break-words flex items-center"
-              style={{ background: "#DCF8C6", fontFamily: "inherit", marginTop: 4 }}
+              className="rounded-xl border px-4 py-3 text-gray-900 shadow-sm text-base font-medium break-words"
+              style={{ background: "#DCF8C6", fontFamily: "inherit", marginTop: 6 }}
             >
-              <span style={{ flex: "1 1 auto", minWidth: 0, wordBreak: "break-word" }}>
-                {review.uplaud}
-              </span>
-              <span
-                className="ml-2 flex-shrink-0 flex items-center review-stars-inside-box"
-                style={{ minWidth: 60, justifyContent: "flex-end" }}
-              >
-                {Array.from({ length: review.score }).map((_, i) => (
-                  <span key={i} className="text-yellow-400 text-base leading-none">★</span>
-                ))}
-                {review.score ? (
-                  <span className="ml-1 text-xl">{emojiForScore(review.score)}</span>
-                ) : null}
-              </span>
+              {review.uplaud}
             </div>
 
-            {/* Share */}
             <div className="flex w-full">
               <button
                 onClick={() => window.open(shareUrl, "_blank")}
@@ -587,7 +540,7 @@ const ProfilePage = () => {
                 title="Share this review on WhatsApp"
               >
                 <Share2 className="text-green-600 w-5 h-5" />
-                <span className="ml-2 text-green-700 font-medium text-sm">Share</span>
+                <span className="ml-2 text-green-700 font-medium text-sm"></span>
               </button>
             </div>
           </div>
@@ -596,7 +549,6 @@ const ProfilePage = () => {
     );
   }
 
-  // ----------- Render -----------
   return (
     <div
       className="min-h-screen w-full font-sans text-gray-800 relative"
@@ -610,201 +562,219 @@ const ProfilePage = () => {
         onClick={() => navigate("/leaderboard")}
         className="fixed sm:absolute top-4 left-4 z-50 font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
         style={{
-          minWidth: 44, minHeight: 44, lineHeight: "24px",
-          paddingTop: 7, paddingBottom: 7,
-          background: "#FFF7E6", color: "#6D46C6", fontFamily: "inherit"
+          minWidth: 44, minHeight: 44,
+          background: "rgba(255,255,255,0.88)", color: "#6D46C6", fontFamily: "inherit", backdropFilter: "blur(6px)"
         }}
       >
         <ArrowLeft className="w-5 h-5" />
         <span className="hidden sm:inline">Back</span>
       </button>
 
-      <div className="max-w-4xl mx-auto space-y-8 relative z-10 pt-16 sm:pt-0 px-2 sm:px-0">
-        {/* Profile Card */}
-        <div className="shadow-lg rounded-2xl p-6 flex flex-col sm:flex-row items-center gap-6 border mt-6" style={{ background: "#FFF7E6", fontFamily: "inherit" }}>
-          <div className="relative w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center text-3xl font-extrabold text-purple-700 select-none" style={{ minWidth: 80, minHeight: 80 }}>
-            {user?.image ? (
-              <img src={user.image} alt={user?.name || 'User'} className="w-full h-full object-cover rounded-full" />
-            ) : (
-              user?.name?.split(' ').map(n => n[0]).join('')
-            )}
-          </div>
-          <div className="flex-1 min-w-0 w-full">
-            <div className="flex flex-col items-center sm:flex-row sm:items-center justify-between w-full">
-              <div className="flex flex-col items-center sm:items-start w-full">
-                <h2
-                  className="font-extrabold flex flex-wrap items-center gap-2"
-                  style={{
-                    fontSize: "2rem",
-                    letterSpacing: "0.5px",
-                    fontFamily: "inherit",
-                  }}
-                >
-                  {user?.name}
-                  {/* chip shows base handle only (no -last3) */}
-                  {user?.handle && (
-                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">@{user.handle}</span>
-                  )}
-                </h2>
-                <p className="text-sm flex flex-wrap items-center gap-2 text-gray-600 mt-2 justify-center sm:justify-start" style={{ fontFamily: "inherit" }}>
-                  <Calendar size={16} /> Joined {joinDate}
-                  {user?.location && (<><MapPin size={16} /> {user.location}</>)}
-                </p>
-                {user?.bio && (
-                  <p className="text-sm mt-2 text-gray-600" style={{ fontFamily: "inherit" }}>{user.bio}</p>
-                )}
-              </div>
-              <div className="profile-stat-row w-full sm:w-auto sm:ml-8 mt-4 sm:mt-0 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-4">
-                <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-4 sm:gap-4">
-                  <BigStat icon={<Star className="w-6 h-6" />} value={totalReviews} color="yellow" label="Reviews" />
-                  <BigStat icon={<Zap className="w-6 h-6" />} value={points} color="purple" label="Points" />
-                  <BigStat icon={<ClipboardList className="w-6 h-6" />} value={referralCount} color="pink" label="Referrals" />
-                </div>
-                <button
-                  onClick={() => {
-                    if (!user) return;
-                    window.open(getWhatsAppShareLink(user), "_blank");
-                  }}
-                  className="flex items-center justify-center border border-gray-200 text-gray-700 bg-[#FFF7E6] hover:bg-gray-50 px-3 py-2 rounded-lg shadow mt-2 sm:mt-0"
-                  title="Share Profile"
-                  style={{ minWidth: 44, fontFamily: "inherit" }}
-                >
-                  <Share2 className="w-5 h-5" />
-                </button>
-              </div>
+      <div className="max-w-4xl mx-auto space-y-6 relative z-10 pt-16 sm:pt-0 px-2 sm:px-0">
+        {/* Profile Card (transparent) */}
+        <div
+          className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-6"
+          style={{
+            background: "rgba(255,255,255,0.75)",
+            backdropFilter: "blur(8px)",
+            borderColor: "rgba(255,255,255,0.6)",
+            fontFamily: "inherit"
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-purple-100 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-purple-700 select-none">
+              {user?.image ? (
+                <img src={user.image} alt={user?.name || 'User'} className="w-full h-full object-cover rounded-full" />
+              ) : (
+                user?.name?.split(' ').map(n => n[0]).join('')
+              )}
             </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-extrabold text-xl sm:text-2xl flex flex-wrap items-center gap-2">
+                {user?.name}
+                {user?.handle && (
+                  <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">@{user.handle}</span>
+                )}
+              </h2>
+              <p className="text-sm flex flex-wrap items-center gap-2 text-gray-700 mt-1">
+                <Calendar size={16} /> Joined {joinDate}
+                {user?.location && (<><MapPin size={16} /> {user.location}</>)}
+              </p>
+              {user?.bio && <p className="text-sm mt-1 text-gray-700">{user.bio}</p>}
+            </div>
+
+            {/* Desktop share */}
+            <button
+              onClick={() => { if (!user) return; window.open(getWhatsAppShareLink(user), "_blank"); }}
+              className="hidden sm:flex items-center justify-center border border-gray-200 text-gray-700 px-3 py-2 rounded-lg shadow"
+              title="Share Profile"
+              style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)" }}
+            >
+              <Share2 className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* ONE compact stats card */}
+          <div className="rounded-xl border p-2 sm:p-3 bg-white/70 backdrop-blur-md">
+            <StatsStrip totalReviews={totalReviews} points={points} referralCount={referralCount} />
+          </div>
+
+          {/* Mobile share — transparent & centered */}
+          <div className="sm:hidden flex justify-center">
+            <button
+              onClick={() => { if (!user) return; window.open(getWhatsAppShareLink(user), "_blank"); }}
+              title="Share Profile"
+              className="p-2"
+              style={{ background: "transparent", border: "none", boxShadow: "none" }}
+            >
+              <Share2 className="w-6 h-6 text-white" />
+            </button>
           </div>
         </div>
 
-        {/* Achievements/Badges Section */}
+        {/* Achievements: earned + next up */}
         <Card
-          className="shadow-[var(--shadow-elegant)] border-uplaud-purple-light/20 mb-5 mt-2 w-full"
+          className="w-full backdrop-blur-md"
           style={{
-            background: "#FFF7E6",
-            border: "1px solid #f5e7d6",
-            boxShadow: "0 2px 16px 0 #dfc6a9a6, 0 2px 8px #dfc6a966",
+            background: "rgba(255,255,255,0.16)",
+            border: "1px solid rgba(255,255,255,0.35)",
+            boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
             fontFamily: "inherit",
-            transition: "background 0.22s",
-            minHeight: 180,
           }}
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-uplaud-purple to-uplaud-purple-light">
+          <div className="flex items-center gap-3 px-3 pt-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600">
               <Trophy className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground">Achievements</h3>
-              <p className="text-xs text-muted-foreground">
-                {earnedCount} of {achievements.length} badges earned
-              </p>
-            </div>
+            <h3 className="text-lg font-semibold text-white">Achievements</h3>
           </div>
 
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-2">
-            <TooltipProvider>
-              {achievements.map((achievement) => (
-                <Tooltip key={achievement.id}>
-                  <TooltipTrigger asChild>
-                    <div className="group cursor-pointer" style={{ minWidth: 80, maxWidth: 120 }}>
-                      <div
-                        className={`
-                          relative aspect-square rounded-xl overflow-hidden transition-all duration-300
-                          ${achievement.isEarned
-                          ? 'shadow-[var(--shadow-badge)] hover:scale-105 animate-scale-in'
-                          : 'opacity-50 grayscale hover:grayscale-0 hover:opacity-75'
-                          }
-                        `}
-                        style={{ width: 80, height: 80, margin: "0 auto" }}
-                      >
-                        <img
-                          src={achievement.image}
-                          alt={achievement.name}
-                          className="w-full h-full object-contain"
-                        />
-                        {!achievement.isEarned && (
-                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                            <Lock className="w-6 h-6 text-white/80" />
-                          </div>
-                        )}
-                        {achievement.isEarned && (
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-uplaud-green rounded-full border-2 border-white flex items-center justify-center">
-                            <div className="w-2 h-2 bg-white rounded-full"></div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-1 text-center">
-                        <p className="text-[11px] font-semibold text-foreground leading-tight truncate">
-                          {achievement.name}
-                        </p>
-                        {achievement.progress && !achievement.isEarned && (
-                          <div className="mt-1">
-                            <div className="w-full bg-muted rounded-full h-1">
-                              <div
-                                className="bg-gradient-to-r from-uplaud-purple to-uplaud-purple-light h-1 rounded-full transition-all duration-300"
-                                style={{
-                                  width: `${(achievement.progress.current / achievement.progress.total) * 100}%`
-                                }}
-                              />
-                            </div>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                              {achievement.progress.current}/{achievement.progress.total}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent
-                    side="bottom"
-                    className="max-w-xs border"
-                    style={{
-                      background: "#fff",
-                      color: "#23223b",
-                      borderColor: "#b39ddb",
-                      fontSize: 13,
-                      boxShadow: "0 4px 32px 0 #a89ff511, 0 2px 8px #bbb1f666",
-                    }}
+          <div className="px-3 pb-3 md:grid md:grid-cols-12 md:gap-3">
+            {/* Earned badges — slightly smaller so label is visible */}
+            <div className="md:col-span-8">
+              {earnedAchievements.length === 0 ? (
+                <div className="text-center text-white/90 py-6 text-sm">
+                  No badges yet — start reviewing to earn your first badge!
+                </div>
+              ) : (
+                <TooltipProvider>
+                  <div
+                    className="gap-2 grid"
+                    style={{ gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))" }}  // ↓ smaller tiles
                   >
-                    <div className="text-center">
-                      <p className="font-semibold">{achievement.name}</p>
-                      <p className="text-xs opacity-90 mt-1">{achievement.description}</p>
-                      {achievement.progress && !achievement.isEarned && (
-                        <Badge variant="secondary" className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
-                          {achievement.progress.current}/{achievement.progress.total} progress
-                        </Badge>
-                      )}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </TooltipProvider>
+                    {earnedAchievements.map((a) => (
+                      <Tooltip key={a.id}>
+                        <TooltipTrigger asChild>
+                          <div className="group cursor-pointer">
+                            <div
+                              className="relative rounded-xl overflow-hidden transition-all duration-300 shadow-[0_8px_24px_rgba(0,0,0,0.15)] hover:scale-105 bg-white/40"
+                              style={{ width: "100%", aspectRatio: "1 / 1", padding: 6 }}   // smaller & padded
+                            >
+                              <img src={a.image} alt={a.name} className="w-full h-full object-contain" />
+                              <div className="absolute -top-1 -right-1 w-5 h-5 bg-uplaud-green rounded-full border-2 border-white flex items-center justify-center">
+                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                              </div>
+                            </div>
+                            <div className="mt-1 text-center">
+                              <p className="text-[11px] font-semibold text-white leading-tight">{a.name}</p>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="bottom"
+                          className="max-w-xs border"
+                          style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}
+                        >
+                          <div className="text-center">
+                            <p className="font-semibold">{a.name}</p>
+                            <p className="text-xs opacity-90 mt-1">{a.description}</p>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
+              )}
+            </div>
+
+            {/* Next up (right on desktop, below on mobile) */}
+            <div className="md:col-span-4 mt-3 md:mt-0 md:border-l md:pl-3 md:border-white/30">
+              <div className="text-[12px] text-white/90 font-semibold mb-2">What’s next</div>
+              {nextUp.length === 0 ? (
+                <div className="text-white/80 text-sm">All caught up. 🔥</div>
+              ) : (
+                <TooltipProvider>
+                  <div className="space-y-2">
+                    {nextUp.map(n => (
+                      <Tooltip key={n.id}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="flex items-center gap-2 rounded-lg border px-2 py-2 bg-white/25 border-white/35 cursor-pointer"
+                            tabIndex={0}
+                            aria-label={`${n.name} — ${n.description}`}
+                          >
+                            <img src={n.image} alt={n.name} className="w-8 h-8 object-contain" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[12px] text-white truncate">{n.name}</div>
+                              <div className="w-full bg-white/30 rounded-full h-1 mt-1">
+                                <div className="bg-white h-1 rounded-full" style={{ width: `${Math.min(100, Math.round((n.progress.current / n.progress.total) * 100))}%` }} />
+                              </div>
+                            </div>
+                            <span className="text-[11px] text-white/80 whitespace-nowrap">{n.progress.current}/{n.progress.total}</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="left"
+                          className="max-w-xs border"
+                          style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}
+                        >
+                          <div>
+                            <p className="font-semibold">{n.name}</p>
+                            <p className="text-xs mt-1">{n.description}</p>
+                            <Badge variant="secondary" className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
+                              {n.progress.current}/{n.progress.total} progress
+                            </Badge>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
+              )}
+            </div>
           </div>
         </Card>
 
-        {/* Tabs: Reviews | Analytics */}
-        <div className="rounded-2xl shadow p-4 border" style={{ background: "#FFF7E6", fontFamily: "inherit" }}>
-          <div className="flex gap-6 border-b mb-6 text-base font-semibold" style={{ fontFamily: "inherit" }}>
+        {/* Tabs */}
+        <div
+          className="rounded-2xl shadow p-4 border"
+          style={{
+            background: "rgba(255,255,255,0.80)",
+            borderColor: "rgba(255,255,255,0.7)",
+            backdropFilter: "blur(8px)"
+          }}
+        >
+          <div className="flex gap-6 border-b mb-6 text-base font-semibold">
             <button
-              className={`pb-2 ${activeTab === 'Reviews' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500 hover:text-purple-600'}`}
+              className={`pb-2 ${activeTab === 'Reviews' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-600 hover:text-purple-700'}`}
               onClick={() => setActiveTab('Reviews')}
-              style={{ fontFamily: "inherit" }}
             >
               Reviews
             </button>
             <button
-              className={`pb-2 ${activeTab === 'Analytics' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500 hover:text-purple-600'}`}
+              className={`pb-2 ${activeTab === 'Analytics' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-600 hover:text-purple-700'}`}
               onClick={() => setActiveTab('Analytics')}
-              style={{ fontFamily: "inherit" }}
             >
               Activity
             </button>
           </div>
+
           {activeTab === "Reviews" && (
-            <div style={{ fontFamily: "inherit" }}>
+            <div>
               {loading ? (
                 <div className="text-center text-gray-400 py-8">Loading reviews…</div>
               ) : reviews.length === 0 ? (
-                <div className="text-center text-gray-400 py-8">No reviews found for this user.</div>
+                <div className="text-center text-gray-500 py-8">No reviews found for this user.</div>
               ) : (
                 <div>
                   <div className="space-y-3">
@@ -817,7 +787,6 @@ const ProfilePage = () => {
                       <button
                         className="px-5 py-2 rounded-lg bg-purple-100 text-purple-700 font-bold hover:bg-purple-200 shadow transition"
                         onClick={() => setShowAllReviews((prev) => !prev)}
-                        style={{ fontFamily: "inherit" }}
                       >
                         {showAllReviews ? "Show Less" : "Load More Reviews"}
                       </button>
@@ -827,11 +796,75 @@ const ProfilePage = () => {
               )}
             </div>
           )}
+
           {activeTab === "Analytics" && (
-            <div style={{ fontFamily: "inherit" }}>
+            <div>
               <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-black">
                 <BarChart2 className="w-5 h-5 text-cyan-600" /> Activities
               </h2>
+
+              {/* Locked badges */}
+              <div className="mb-8">
+                <div className="font-semibold text-gray-700 mb-2">Badge Goals</div>
+                {lockedAchievements.length === 0 ? (
+                  <div className="text-gray-500 text-sm">You’ve unlocked all available badges. 🙌</div>
+                ) : (
+                  <TooltipProvider>
+                    <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                      {lockedAchievements.map((a) => (
+                        <Tooltip key={a.id}>
+                          <TooltipTrigger asChild>
+                            <div className="group cursor-pointer">
+                              <div
+                                className="relative rounded-xl overflow-hidden border bg-white shadow-sm grayscale opacity-80 hover:grayscale-0 hover:opacity-100 transition"
+                                style={{ width: 84, height: 84, margin: "0 auto" }}
+                              >
+                                <img src={a.image} alt={a.name} className="w-full h-full object-contain" />
+                                <div className="absolute inset-0 bg-black/15 flex items-center justify-center">
+                                  <Lock className="w-5 h-5 text-white/90" />
+                                </div>
+                              </div>
+                              <div className="mt-1 text-center">
+                                <p className="text-[11px] font-semibold text-gray-800 leading-tight truncate">{a.name}</p>
+                                {a.progress && (
+                                  <div className="mt-1">
+                                    <div className="w-full bg-muted rounded-full h-1">
+                                      <div
+                                        className="bg-purple-600 h-1 rounded-full transition-all duration-300"
+                                        style={{ width: `${(a.progress.current / a.progress.total) * 100}%` }}
+                                      />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                      {a.progress.current}/{a.progress.total}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="bottom"
+                            className="max-w-xs border"
+                            style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}
+                          >
+                            <div className="text-center">
+                              <p className="font-semibold">{a.name}</p>
+                              <p className="text-xs opacity-90 mt-1">{a.description}</p>
+                              {a.progress && (
+                                <Badge variant="secondary" className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
+                                  {a.progress.current}/{a.progress.total} progress
+                                </Badge>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </TooltipProvider>
+                )}
+              </div>
+
+              {/* Stats */}
               <div className="mb-6">
                 <div className="font-semibold text-gray-700">Total Reviews:</div>
                 <div className="text-lg font-bold text-purple-600">{totalReviews}</div>
@@ -840,6 +873,8 @@ const ProfilePage = () => {
                 <div className="font-semibold text-gray-700">Average Score:</div>
                 <div className="text-lg font-bold text-cyan-600">{averageScore} / 5</div>
               </div>
+
+              {/* Referrals: no status chip now */}
               <div className="mb-6">
                 <div className="font-semibold text-gray-700 mb-1">Your Referrals</div>
                 {myReferrals.length === 0 ? (
@@ -848,18 +883,9 @@ const ProfilePage = () => {
                   <div className="space-y-2">
                     {myReferrals.map((ref, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-green-500" />
+                        <User className="w-4 h-4 text-green-600" />
                         <span className="font-semibold text-base text-green-800">{ref.receiver}</span>
                         <span className="text-xs text-gray-500">(for {ref.business})</span>
-                        <span
-                          className={`ml-2 px-2 py-1 rounded-full text-xs font-bold ${
-                            ref.status === "Read"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {ref.status === "Read" ? "Read" : "Delivered"}
-                        </span>
                       </div>
                     ))}
                   </div>
@@ -872,6 +898,7 @@ const ProfilePage = () => {
 
       <style>{`
         body { background: #6D46C6 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
+
         .business-hover-underline { transition: color 0.2s; position: relative; }
         .business-hover-underline:hover, .business-hover-underline:focus { color: #6D46C6 !important; }
         .business-hover-underline::after {
@@ -880,23 +907,23 @@ const ProfilePage = () => {
           transition: opacity 0.18s, transform 0.2s;
         }
         .business-hover-underline:hover::after, .business-hover-underline:focus::after { opacity: 1; transform: scaleX(1); }
-        @media (hover: hover) and (pointer: fine) {
-          .stat-hover { transition: transform 0.18s, box-shadow 0.2s; }
-          .stat-hover:hover, .stat-hover:focus {
-            transform: scale(1.07) translateY(-4px);
-            box-shadow: 0 8px 28px 0 #a89ff544, 0 2px 8px #bbb1f644; z-index: 10;
-          }
+
+        /* Compact stats sizing on mobile */
+        .stat-value { font-size: 1.15rem; }
+        .stat-label { font-size: 0.85rem; }
+        @media (min-width: 640px) {
+          .stat-value { font-size: 1.35rem; }
+          .stat-label { font-size: 0.95rem; }
         }
-        .profile-stat-row { display: flex; flex-direction: column; align-items: center; width: 100%; }
-        @media (min-width: 640px) { .profile-stat-row { flex-direction: row; align-items: flex-start; width: auto; } }
-        .stat-card { width: 100%; max-width: 300px; }
-        @media (min-width: 640px) { .stat-card { width: auto; min-width: 120px; max-width: none; } }
-        .review-biz-avatar span { font-size: 1.08rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-        @media (max-width: 700px) {
-          .review-card-mobile { padding-left: 8px; padding-right: 8px; }
-          .review-biz-avatar { width: 36px !important; height: 36px !important; }
-          .review-biz-avatar span { font-size: 0.93rem !important; line-height: 36px !important; }
-          h2 { font-size: 1.15rem !important; }
+
+        @media (hover: hover) and (pointer: fine) {
+          .stats-seg { transition: transform 0.15s, box-shadow 0.15s; }
+          .stats-seg:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+        }
+
+        /* tiny helper for 360-400px devices */
+        @media (max-width: 400px) {
+          .xs\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
       `}</style>
     </div>
