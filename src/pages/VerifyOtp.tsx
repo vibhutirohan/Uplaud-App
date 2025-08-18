@@ -32,23 +32,34 @@ const VerifyOtp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#6e1bd4] via-[#6214a8] to-[#4c0e7a] flex flex-col relative overflow-hidden">
-      {/* Top left: transparent logo as homepage link */}
-      <div className="absolute top-8 left-8 z-30">
-        <Link to="/">
-          <img
-            alt="Uplaud Logo"
-            className="h-12 w-auto mb-1 transition-opacity duration-200 hover:opacity-80"
-            src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
-            style={{ objectFit: 'contain', opacity: 0.8, cursor: 'pointer' }}
-          />
-        </Link>
-      </div>
+
+      {/* Transparent logo: centered on mobile, top-left on desktop */}
+      <Link
+        to="/"
+        className="
+          absolute z-30
+          top-6 left-1/2 -translate-x-1/2
+          md:left-8 md:translate-x-0
+        "
+        aria-label="Go to homepage"
+      >
+        <img
+          alt="Uplaud Logo"
+          className="h-12 w-auto transition-opacity duration-200 hover:opacity-90"
+          src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
+          style={{
+            objectFit: 'contain',
+            background: 'transparent', // no background; image must have transparent bg
+          }}
+        />
+      </Link>
 
       <div className="flex flex-1 items-center justify-center z-20">
         <div className="w-full max-w-md bg-white/90 rounded-3xl shadow-xl backdrop-blur-md p-8 space-y-6">
           <div className="flex items-center justify-center mb-4">
             <Shield className="text-purple-600 w-10 h-10" />
           </div>
+
           <h2 className="text-xl font-semibold text-center text-gray-800">Enter the OTP</h2>
           <p className="text-sm text-center text-gray-500">Check your WhatsApp for the 6-digit code.</p>
 
@@ -81,7 +92,7 @@ const VerifyOtp: React.FC = () => {
         </div>
       </div>
 
-      {/* Glow background effects */}
+      {/* Subtle glow background effects */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl animate-pulse" />
       <div className="absolute bottom-10 right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl animate-pulse delay-1000" />
     </div>

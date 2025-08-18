@@ -10,7 +10,7 @@ const COUNTRY_CODES = [
   { code: '91' },
 ];
 
-function cleanPhoneNumber(input) {
+function cleanPhoneNumber(input: string) {
   return input.replace(/[^\d]/g, '');
 }
 
@@ -50,23 +50,36 @@ const Login = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#6e1bd4] via-[#6214a8] to-[#4c0e7a] px-4 py-8 relative font-sans overflow-hidden">
 
-      {/* --- Top left: Transparent logo as homepage link --- */}
-      <div className="flex flex-col items-start absolute top-8 left-8 z-30">
-        <Link to="/">
-          <img
-            alt="Uplaud Logo"
-            className="h-12 w-auto mb-1 transition-opacity duration-200 hover:opacity-80"
-            src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
-            style={{ objectFit: 'contain', opacity: 0.8, cursor: 'pointer' }}
-          />
-        </Link>
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1 text-white font-medium hover:underline mt-1"
-        >
-          <ArrowLeft size={16} /> Back
-        </button>
-      </div>
+      {/* --- Transparent logo --- */}
+      {/* Mobile: centered; Desktop: top-left. No background/gradient added around the logo. */}
+      <Link
+        to="/"
+        className="
+          absolute z-30
+          top-6 left-1/2 -translate-x-1/2
+          md:left-8 md:translate-x-0
+        "
+        aria-label="Go to homepage"
+      >
+        <img
+          alt="Uplaud"
+          className="h-12 w-auto transition-opacity duration-200 hover:opacity-90"
+          src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
+          style={{
+            objectFit: 'contain',
+            // No background, no gradient—image file must have transparent background.
+            background: 'transparent',
+          }}
+        />
+      </Link>
+
+      {/* --- Back button (MOBILE ONLY) --- */}
+      <button
+        onClick={() => navigate(-1)}
+        className="absolute top-8 left-8 z-30 flex items-center gap-1 text-white font-medium hover:underline md:hidden"
+      >
+        <ArrowLeft size={16} /> Back
+      </button>
 
       {/* Centered login card */}
       <div className="flex flex-1 items-center justify-center z-20">
@@ -81,6 +94,7 @@ const Login = () => {
                 Enter your WhatsApp number to receive OTP.
               </p>
             </div>
+
             <div>
               <label htmlFor="phone" className="text-sm font-medium text-gray-700 mb-1 block">
                 WhatsApp Number
@@ -110,12 +124,14 @@ const Login = () => {
                 </div>
               </div>
             </div>
+
             <Button
               onClick={handleSendOtp}
               className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2.5 rounded-lg transition duration-200"
             >
               {otpSent ? 'Sending OTP...' : 'Send OTP'}
             </Button>
+
             <p className="text-xs text-gray-500 text-center">
               By continuing, you agree to our{' '}
               <a
@@ -139,7 +155,8 @@ const Login = () => {
           </div>
         </div>
       </div>
-      {/* Glow background effects */}
+
+      {/* Subtle glow effects */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-white/10 rounded-full blur-2xl animate-pulse" />
       <div className="absolute bottom-10 right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl animate-pulse delay-1000" />
     </div>

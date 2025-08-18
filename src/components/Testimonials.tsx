@@ -26,25 +26,43 @@ function slugify(name = "") {
 
 const MARQUEE_DURATION = 275;
 
-function MarqueeRow({ children, reverse = false }) {
+/* Row that scrolls horizontally. Pauses on hover, press, or touch. */
+function MarqueeRow({
+  children,
+  reverse = false,
+}: {
+  children: React.ReactNode;
+  reverse?: boolean;
+}) {
   const [paused, setPaused] = useState(false);
+
+  const pause = () => setPaused(true);
+  const resume = () => setPaused(false);
+  const togglePause = () => setPaused((p) => !p);
+
   return (
     <div
       className="relative w-full flex justify-center overflow-hidden"
       style={{
-        minHeight: 190,
+        minHeight: 210,
         marginBottom: 12,
-        maxWidth: "100vw"
+        maxWidth: "100vw",
       }}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      /* Desktop hover */
+      onMouseEnter={pause}
+      onMouseLeave={resume}
+      /* Works for both mouse and touch */
+      onPointerDown={pause}
+      onPointerUp={resume}
+      /* Tap-to-toggle as an extra (in case of quick taps) */
+      onClickCapture={togglePause}
     >
       <div
         className="flex items-center gap-7"
         style={{
           width: "max-content",
           animation: `marquee-${reverse ? "rev" : "fwd"} ${MARQUEE_DURATION}s linear infinite`,
-          animationPlayState: paused ? "paused" : "running"
+          animationPlayState: paused ? "paused" : "running",
         }}
       >
         {children}
@@ -54,7 +72,7 @@ function MarqueeRow({ children, reverse = false }) {
   );
 }
 
-function ReviewCard({ review, navigate }) {
+function ReviewCard({ review, navigate }: { review: any; navigate: any }) {
   if (!review) return null;
   const nameArr = review.fields["Name_Creator"];
   const userName = Array.isArray(nameArr) ? nameArr[0] : nameArr;
@@ -78,13 +96,13 @@ function ReviewCard({ review, navigate }) {
 
   return (
     <figure
-      className="relative h-full w-72 sm:w-80 overflow-hidden rounded-2xl border-2 p-6 shadow-lg bg-white transition-all flex flex-col"
+      className="spotlight-card relative h-full overflow-hidden rounded-2xl border-2 p-6 shadow-lg bg-white transition-all flex flex-col"
       style={{
         minWidth: 240,
         maxWidth: 340,
         margin: "0 10px",
         border: `2px solid ${MINT}`,
-        background: "#fff"
+        background: "#fff",
       }}
     >
       {showBizImage && (
@@ -94,7 +112,7 @@ function ReviewCard({ review, navigate }) {
             minHeight: 80,
             maxHeight: 100,
             overflow: "hidden",
-            borderRadius: "12px"
+            borderRadius: "12px",
           }}
           onClick={() => navigate(`/business/${slugify(business)}`)}
         >
@@ -109,9 +127,7 @@ function ReviewCard({ review, navigate }) {
       )}
       <figcaption
         className="font-extrabold text-base text-[#6D46C6] flex items-center cursor-pointer"
-        style={{
-          marginBottom: "4px"
-        }}
+        style={{ marginBottom: "4px" }}
         onClick={() => navigate(`/business/${slugify(business)}`)}
       >
         {business}
@@ -145,45 +161,21 @@ function ReviewCard({ review, navigate }) {
           {userName}
         </span>
       </div>
-
-      {/* 🔒 COMMENTED OUT: Like (Heart) Button until login is ready */}
-      {/*
-      <button
-        className="absolute bottom-4 right-4 bg-white rounded-full p-2 border border-gray-200 shadow flex items-center justify-center transition hover:scale-110 active:scale-95"
-        style={{
-          zIndex: 10
-        }}
-        onClick={e => {
-          e.stopPropagation();
-          navigate('/login');
-        }}
-        tabIndex={0}
-        aria-label="Like this review (requires login)"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M5.68 12.17l6.37 6.36a1 1 0 001.42 0l6.37-6.36A4.51 4.51 0 0012 7.5a4.51 4.51 0 00-6.32 4.67z"
-          />
-        </svg>
-      </button>
-      */}
     </figure>
   );
 }
 
 const UpcomingFeatures = () => {
   const navigate = useNavigate();
-  const [spotlightReviews, setSpotlightReviews] = useState([]);
+  const [spotlightReviews, setSpotlightReviews] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchSpotlightReviews = async () => {
-      let allRecords = [];
-      let offset = undefined;
+      let allRecords: any[] = [];
+      let offset: string | undefined = undefined;
       try {
         do {
-          const params = { pageSize: 100 };
+          const params: any = { pageSize: 100 };
           if (offset) params.offset = offset;
           const resp = await axios.get(
             `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
@@ -192,10 +184,10 @@ const UpcomingFeatures = () => {
           allRecords = allRecords.concat(resp.data.records);
           offset = resp.data.offset;
         } while (offset);
-      } catch (e) { /* fail gracefully */ }
+      } catch (e) { /* ignore */ }
 
       const now = new Date();
-      let filtered = allRecords.filter(r => {
+      let filtered = allRecords.filter((r: any) => {
         const nameArr = r.fields["Name_Creator"];
         const name = Array.isArray(nameArr) ? nameArr[0] : nameArr;
         const business = r.fields["business_name"] || r.fields["Business"] || "";
@@ -214,8 +206,8 @@ const UpcomingFeatures = () => {
         );
       });
 
-      const businessLatest = {};
-      filtered.forEach(r => {
+      const businessLatest: Record<string, any> = {};
+      filtered.forEach((r: any) => {
         const business = r.fields["business_name"] || r.fields["Business"] || "";
         const bizSlug = slugify(business);
         if (!bizSlug) return;
@@ -232,7 +224,7 @@ const UpcomingFeatures = () => {
         [spotlightArr[i], spotlightArr[j]] = [spotlightArr[j], spotlightArr[i]];
       }
 
-      setSpotlightReviews(spotlightArr);
+      setSpotlightReviews(spotlightArr as any[]);
     };
     fetchSpotlightReviews();
   }, []);
@@ -248,34 +240,32 @@ const UpcomingFeatures = () => {
         width: "100vw",
         minHeight: "48vh",
         margin: 0,
-        padding: "0px 0px 22px 0px"
+        padding: "0px 0px 22px 0px",
       }}
     >
-      <div
-        className="w-full max-w-[1600px] flex flex-col items-center"
-        style={{ padding: "0", marginTop: 0 }}
-      >
-        <h2 className="font-extrabold text-3xl sm:text-4xl mb-6 text-center tracking-tight"
-            style={{
-              color: "#6D46C6",
-              letterSpacing: "1px",
-              textShadow: "0 2px 12px #eee"
-            }}>
-          Uplaud Spotlight 
+      <div className="w-full max-w-[1600px] flex flex-col items-center" style={{ padding: 0, marginTop: 0 }}>
+        <h2
+          className="font-extrabold text-3xl sm:text-4xl mb-6 text-center tracking-tight"
+          style={{ color: "#6D46C6", letterSpacing: "1px", textShadow: "0 2px 12px #eee" }}
+        >
+          Uplaud Spotlight
         </h2>
+
         <div className="w-full flex flex-col gap-6 items-center">
           <MarqueeRow>
-            {row1.map((r) => (
+            {row1.map((r: any) => (
               <ReviewCard review={r} key={r.id + "-row1"} navigate={navigate} />
             ))}
           </MarqueeRow>
           <MarqueeRow reverse>
-            {row2.map((r) => (
+            {row2.map((r: any) => (
               <ReviewCard review={r} key={r.id + "-row2"} navigate={navigate} />
             ))}
           </MarqueeRow>
         </div>
       </div>
+
+      {/* Styles to (1) run marquee, (2) force 1 card per row on mobile */}
       <style>{`
         @keyframes marquee-fwd {
           0% { transform: translateX(0); }
@@ -284,6 +274,21 @@ const UpcomingFeatures = () => {
         @keyframes marquee-rev {
           0% { transform: translateX(-50%); }
           100% { transform: translateX(0); }
+        }
+
+        /* Default card width for tablet/desktop */
+        .spotlight-card {
+          width: 18rem; /* ~288px */
+        }
+
+        /* Mobile: show exactly 1 card per row (so two cards total across both rows) */
+        @media (max-width: 640px) {
+          .spotlight-card {
+            width: 88vw !important;
+            max-width: 88vw !important;
+            min-width: 88vw !important;
+            margin: 0 6vw; /* breathing space at sides while centered */
+          }
         }
       `}</style>
     </section>
