@@ -1,20 +1,36 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
-  Star, ClipboardList, Zap, Calendar, MapPin, ArrowLeft, Share2, BarChart2, Trophy, Lock, User
+  Star,
+  ClipboardList,
+  Zap,
+  Calendar,
+  MapPin,
+  ArrowLeft,
+  Share2,
+  BarChart2,
+  Trophy,
+  Lock,
+  User,
 } from "lucide-react";
 import axios from "axios";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 /* ===================== Airtable Config ===================== */
-const API_KEY = 'patZS8GyNhkwoP4wY.2beddc214f4dd2a5e4c220ae654f62652a5e02a47bae2287c54fced7bb97c07e';
-const BASE_ID = 'appFUJWWTaoJ3YiWt';
-const USERS_TABLE = 'tblWIFgwTz3Gn3idV';
-const REVIEWS_TABLE = 'tblef0n1hQXiKPHxI';
-const CIRCLES_TABLE = 'tbldL8H5T4qYKUzLV';
+const API_KEY =
+  "patZS8GyNhkwoP4wY.2beddc214f4dd2a5e4c220ae654f62652a5e02a47bae2287c54fced7bb97c07e";
+const BASE_ID = "appFUJWWTaoJ3YiWt";
+const USERS_TABLE = "tblWIFgwTz3Gn3idV";
+const REVIEWS_TABLE = "tblef0n1hQXiKPHxI";
+const CIRCLES_TABLE = "tbldL8H5T4qYKUzLV";
 
 /* ===================== Badges ===================== */
 const BADGES = [
@@ -26,8 +42,8 @@ const BADGES = [
     progress: (user: any) => ({
       current: user.reviews.length,
       total: 1,
-      isEarned: user.reviews.length >= 1
-    })
+      isEarned: user.reviews.length >= 1,
+    }),
   },
   {
     key: "glow_getter",
@@ -37,8 +53,8 @@ const BADGES = [
     progress: (user: any) => ({
       current: Math.min(user.reviews.length, 10),
       total: 10,
-      isEarned: user.reviews.length >= 10
-    })
+      isEarned: user.reviews.length >= 10,
+    }),
   },
   {
     key: "vibe_curator",
@@ -46,9 +62,11 @@ const BADGES = [
     description: "Submit reviews in 5+ different categories",
     image: "Vibe_Curator.png",
     progress: (user: any) => {
-      const catCount = new Set(user.reviews.map((r: any) => (r.category || "").toLowerCase())).size;
+      const catCount = new Set(
+        user.reviews.map((r: any) => (r.category || "").toLowerCase())
+      ).size;
       return { current: Math.min(catCount, 5), total: 5, isEarned: catCount >= 5 };
-    }
+    },
   },
   {
     key: "cultural_explorer",
@@ -56,9 +74,11 @@ const BADGES = [
     description: "10+ reviews in Museums/Nature categories",
     image: "Cultural_Explorer.png",
     progress: (user: any) => {
-      const count = user.reviews.filter((r: any) => ["museum", "nature"].includes((r.category || "").toLowerCase())).length;
+      const count = user.reviews.filter((r: any) =>
+        ["museum", "nature"].includes((r.category || "").toLowerCase())
+      ).length;
       return { current: Math.min(count, 10), total: 10, isEarned: count >= 10 };
-    }
+    },
   },
   {
     key: "squad_initiator",
@@ -68,8 +88,8 @@ const BADGES = [
     progress: (user: any) => ({
       current: Math.min(user.referralCount, 1),
       total: 1,
-      isEarned: user.referralCount >= 1
-    })
+      isEarned: user.referralCount >= 1,
+    }),
   },
   {
     key: "squad_leader",
@@ -79,8 +99,8 @@ const BADGES = [
     progress: (user: any) => ({
       current: Math.min(user.referralCount, 5),
       total: 5,
-      isEarned: user.referralCount >= 5
-    })
+      isEarned: user.referralCount >= 5,
+    }),
   },
   {
     key: "streak_star",
@@ -88,18 +108,30 @@ const BADGES = [
     description: "Review for 7 consecutive days",
     image: "Streak_Star.png",
     progress: (user: any) => {
-      const days = [...new Set(user.reviews.map((r: any) =>
-        r.date && !isNaN(r.date.getTime()) ? r.date.toDateString() : null
-      ).filter(Boolean))].map((d: any) => new Date(d)).sort((a: any, b: any) => a as any - (b as any));
+      const days = [
+        ...new Set(
+          user.reviews
+            .map((r: any) =>
+              r.date && !isNaN(r.date.getTime()) ? r.date.toDateString() : null
+            )
+            .filter(Boolean)
+        ),
+      ]
+        .map((d: any) => new Date(d))
+        .sort((a: any, b: any) => (a as any) - (b as any));
 
-      let streak = 1, maxStreak = 1;
+      let streak = 1,
+        maxStreak = 1;
       for (let i = 1; i < days.length; i++) {
-        if (((days[i] as any) - (days[i - 1] as any)) === 24 * 3600 * 1000) {
-          streak++; maxStreak = Math.max(maxStreak, streak);
-        } else { streak = 1; }
+        if ((days[i] as any) - (days[i - 1] as any) === 24 * 3600 * 1000) {
+          streak++;
+          maxStreak = Math.max(maxStreak, streak);
+        } else {
+          streak = 1;
+        }
       }
       return { current: Math.min(maxStreak, 7), total: 7, isEarned: maxStreak >= 7 };
-    }
+    },
   },
   {
     key: "viral_star",
@@ -107,20 +139,28 @@ const BADGES = [
     description: "10+ referrals in 1 week",
     image: "Viral_Star.png",
     progress: (user: any) => {
-      if (!user.myReferrals || user.myReferrals.length < 10) return { current: 0, total: 10, isEarned: false };
+      if (!user.myReferrals || user.myReferrals.length < 10)
+        return { current: 0, total: 10, isEarned: false };
       const refDates = user.myReferrals
-        .map((ref: any) => ref.date ? new Date(ref.date) : null)
+        .map((ref: any) => (ref.date ? new Date(ref.date) : null))
         .filter(Boolean)
-        .sort((a: any, b: any) => a as any - (b as any));
+        .sort((a: any, b: any) => (a as any) - (b as any));
       let earned = false;
       for (let i = 0; i <= refDates.length - 10; i++) {
         const start = refDates[i] as any;
         const end = refDates[i + 9] as any;
-        if ((end - start) <= 7 * 24 * 3600 * 1000) { earned = true; break; }
+        if (end - start <= 7 * 24 * 3600 * 1000) {
+          earned = true;
+          break;
+        }
       }
-      return { current: Math.min(user.myReferrals.length, 10), total: 10, isEarned: earned };
-    }
-  }
+      return {
+        current: Math.min(user.myReferrals.length, 10),
+        total: 10,
+        isEarned: earned,
+      };
+    },
+  },
 ];
 
 const getGenderFolder = (gender?: string) => {
@@ -129,22 +169,46 @@ const getGenderFolder = (gender?: string) => {
   return "Male";
 };
 
-function getAchievements(user: any, reviews: any[], referralCount: number, myReferrals: any[]) {
+function getAchievements(
+  user: any,
+  reviews: any[],
+  referralCount: number,
+  myReferrals: any[]
+) {
   const gender = getGenderFolder(user?.gender || user?.Gender);
-  const userObj = { ...user, reviews: reviews || [], referralCount: referralCount || 0, myReferrals: myReferrals || [] };
-  return BADGES.map(badge => {
+  const userObj = {
+    ...user,
+    reviews: reviews || [],
+    referralCount: referralCount || 0,
+    myReferrals: myReferrals || [],
+  };
+  return BADGES.map((badge) => {
     const p = badge.progress(userObj);
-    return { id: badge.key, name: badge.label, description: badge.description, image: `/badges/${gender}/${badge.image}`, isEarned: p.isEarned, progress: p };
+    return {
+      id: badge.key,
+      name: badge.label,
+      description: badge.description,
+      image: `/badges/${gender}/${badge.image}`,
+      isEarned: p.isEarned,
+      progress: p,
+    };
   });
 }
 
 /* ===================== Utilities ===================== */
 function slugify(name = "") {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
 }
 function formatDate(date?: Date | null) {
   if (!date) return "";
-  return date.toLocaleDateString(undefined, { month: "long", day: "2-digit", year: "numeric" });
+  return date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "2-digit",
+    year: "numeric",
+  });
 }
 function emojiForScore(score?: number) {
   if (!score) return "🤍";
@@ -162,21 +226,33 @@ function getWhatsAppShareLink(user?: any) {
   const msg = `Add me to ${user?.name || "your"}'s circle`;
   return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 }
-const digitsOnly = (s="") => (s || "").toString().replace(/\D/g, "");
-const last3 = (s="") => {
+const digitsOnly = (s = "") => (s || "").toString().replace(/\D/g, "");
+const last3 = (s = "") => {
   const d = digitsOnly(s);
   if (!d) return "000";
   return d.slice(-3).padStart(3, "0");
 };
 async function fetchLast3FromReviews(foundUser: any) {
   const headers = { Authorization: `Bearer ${API_KEY}` };
-  const byIdParams = { pageSize: 1, filterByFormula: `{ID (from Creator)}="${foundUser.id}"` };
-  const byNameParams = { pageSize: 1, filterByFormula: `{Name_Creator}="${foundUser.name}"` };
+  const byIdParams = {
+    pageSize: 1,
+    filterByFormula: `{ID (from Creator)}="${foundUser.id}"`,
+  };
+  const byNameParams = {
+    pageSize: 1,
+    filterByFormula: `{Name_Creator}="${foundUser.name}"`,
+  };
   try {
-    const r1 = await axios.get(`https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`, { headers, params: byIdParams });
+    const r1 = await axios.get(
+      `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
+      { headers, params: byIdParams }
+    );
     let rec = r1.data.records?.[0];
     if (!rec) {
-      const r2 = await axios.get(`https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`, { headers, params: byNameParams });
+      const r2 = await axios.get(
+        `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
+        { headers, params: byNameParams }
+      );
       rec = r2.data.records?.[0];
     }
     const phone = rec?.fields?.ReviewerPhoneNumber || rec?.fields?.Phone || "";
@@ -186,7 +262,7 @@ async function fetchLast3FromReviews(foundUser: any) {
   }
 }
 
-/* Time ago + referral helpers (time text not shown in UI now, but kept for future) */
+/* Time ago + referral helpers */
 function timeAgo(from?: Date | null) {
   if (!from) return "just now";
   const ms = Date.now() - from.getTime();
@@ -201,7 +277,8 @@ function timeAgo(from?: Date | null) {
 }
 function toReferralStatus(raw?: string): "clicked" | "reviewed" {
   const s = (raw || "").toLowerCase();
-  if (["reviewed", "completed", "done", "posted"].some(k => s.includes(k))) return "reviewed";
+  if (["reviewed", "completed", "done", "posted"].some((k) => s.includes(k)))
+    return "reviewed";
   return "clicked";
 }
 function makeAvatarUrl(name: string) {
@@ -209,66 +286,237 @@ function makeAvatarUrl(name: string) {
   return `https://ui-avatars.com/api/?name=${n}&size=150&background=random`;
 }
 
+/* ===================== Touch detection for mobile pop-outs ===================== */
+function useIsTouch() {
+  const [isTouch, setIsTouch] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    const update = () => setIsTouch(mq.matches);
+    update();
+    // @ts-ignore
+    mq.addEventListener ? mq.addEventListener("change", update) : mq.addListener(update);
+    return () => {
+      // @ts-ignore
+      mq.removeEventListener ? mq.removeEventListener("change", update) : mq.removeListener(update);
+    };
+  }, []);
+  return isTouch;
+}
+
 /* ===================== UI Bits ===================== */
 const ColoredStatsTabs = ({
-  totalReviews, points, referralCount
-}: { totalReviews: number; points: number; referralCount: number; }) => {
+  totalReviews,
+  points,
+  referralCount,
+}: {
+  totalReviews: number;
+  points: number;
+  referralCount: number;
+}) => {
   const Pill = ({
-    bg, ring, icon, label, value
-  }: { bg: string; ring: string; icon: React.ReactNode; label: string; value: number | string; }) => (
+    bg,
+    ring,
+    icon,
+    label,
+    value,
+  }: {
+    bg: string;
+    ring: string;
+    icon: React.ReactNode;
+    label: string;
+    value: number | string;
+  }) => (
     <div
       className={`rounded-xl ${bg} ${ring} px-2.5 py-1.5 sm:px-4 sm:py-3 shadow-sm flex items-center justify-center gap-2 sm:gap-3`}
       style={{ backdropFilter: "blur(4px)" }}
     >
       {icon}
       <span className="text-base sm:text-lg font-extrabold tabular-nums">{value}</span>
-      <span className="text-[12px] sm:text-[13px] font-semibold whitespace-nowrap">{label}</span>
+      <span className="text-[12px] sm:text-[13px] font-semibold whitespace-nowrap">
+        {label}
+      </span>
     </div>
   );
 
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-3">
-      <Pill bg="bg-amber-50 text-amber-800" ring="ring-1 ring-amber-200" icon={<Star className="w-3 h-3" />} label="Reviews" value={totalReviews} />
-      <Pill bg="bg-violet-50 text-violet-800" ring="ring-1 ring-violet-200" icon={<Zap className="w-3 h-3" />} label="Points" value={points} />
-      <Pill bg="bg-rose-50 text-rose-800" ring="ring-1 ring-rose-200" icon={<ClipboardList className="w-3 h-3" />} label="Referrals" value={referralCount} />
+      <Pill
+        bg="bg-amber-50 text-amber-800"
+        ring="ring-1 ring-amber-200"
+        icon={<Star className="w-3 h-3" />}
+        label="Reviews"
+        value={totalReviews}
+      />
+      <Pill
+        bg="bg-violet-50 text-violet-800"
+        ring="ring-1 ring-violet-200"
+        icon={<Zap className="w-3 h-3" />}
+        label="Points"
+        value={points}
+      />
+      <Pill
+        bg="bg-rose-50 text-rose-800"
+        ring="ring-1 ring-rose-200"
+        icon={<ClipboardList className="w-3 h-3" />}
+        label="Referrals"
+        value={referralCount}
+      />
     </div>
   );
 };
 
-/* ===== ReferralCard (status/time removed per request) ===== */
+/* ===== Badge tile: hover tooltip on desktop, TAP pop-out on mobile ===== */
+function BadgeTile({
+  badge,
+  locked = false,
+  showProgress = false,
+  size = 84,
+}: {
+  badge: {
+    id: string;
+    name: string;
+    description: string;
+    image: string;
+    progress?: { current: number; total: number };
+  };
+  locked?: boolean;
+  showProgress?: boolean;
+  size?: number;
+}) {
+  const isTouch = useIsTouch();
+  const [open, setOpen] = useState(false);
+
+  const isStreak = badge.id === "streak_star"; // highlight this one in purple (track + fill + text)
+  const nameColor = locked ? "text-gray-800" : "text-white";
+
+  const pct =
+    badge.progress && badge.progress.total > 0
+      ? Math.min(100, (badge.progress.current / badge.progress.total) * 100)
+      : 0;
+
+  const inner = (
+    <div
+      className="cursor-pointer text-center relative"
+      style={{ width: size, margin: "0 auto" }}
+      onClick={() => isTouch && setOpen((o) => !o)}
+    >
+      <div className="relative rounded-xl overflow-hidden" style={{ width: size, height: size }}>
+        <img
+          src={badge.image}
+          alt={badge.name}
+          className="w-full h-full object-contain"
+          style={{ background: "transparent" }}
+        />
+        {locked && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Lock className="w-5 h-5 text-white/90 drop-shadow" />
+          </div>
+        )}
+      </div>
+
+      <p className={`mt-1 text-[11px] font-semibold leading-tight ${nameColor}`}>{badge.name}</p>
+
+      {showProgress && badge.progress && (
+        <div className="mt-1">
+          <div className={`w-full rounded-full h-1 ${isStreak ? "bg-purple-100" : "bg-gray-200"}`}>
+            <div
+              className={`${isStreak ? "bg-purple-600" : "bg-purple-600"} h-1 rounded-full`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p
+            className={`text-[10px] mt-1 ${
+              isStreak ? "text-purple-700 font-semibold" : "text-gray-600"
+            }`}
+          >
+            {badge.progress.current}/{badge.progress.total}
+          </p>
+        </div>
+      )}
+
+      {/* Mobile pop-out */}
+      {isTouch && open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-44 rounded-md border bg-white text-gray-800 text-xs shadow-lg px-3 py-2">
+          <div className="font-semibold">{badge.name}</div>
+          <div className="opacity-80 mt-0.5">{badge.description}</div>
+        </div>
+      )}
+    </div>
+  );
+
+  if (isTouch) return inner;
+
+  // Desktop: shadcn tooltip on hover
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent
+        side="bottom"
+        className="max-w-xs border"
+        style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}
+      >
+        <div className="text-center">
+          <p className="font-semibold">{badge.name}</p>
+          <p className="text-xs opacity-90 mt-1">{badge.description}</p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ===== ReferralCard (click user name → profile) ===== */
 export interface ReferralData {
   id: string;
   referredPersonName: string;
   businessName: string;
-  timeAgo: string; // kept in data, not displayed
-  status: "clicked" | "reviewed"; // kept in data, not displayed
+  timeAgo: string;
+  status: "clicked" | "reviewed";
   avatarUrl?: string;
 }
-
 const ReferralCard = ({ referral }: { referral: ReferralData }) => {
+  const navigate = useNavigate();
+  const go = () => navigate(`/profile/${slugify(referral.referredPersonName)}`);
+
   return (
-    <div className="bg-gradient-card rounded-xl p-4 shadow-card hover:shadow-soft transition-all duration-300 border border-accent/20">
+    <div
+      className="bg-gradient-card rounded-xl p-4 shadow-card hover:shadow-soft transition-all duration-300 border border-accent/20 cursor-pointer"
+      onClick={go}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === "Enter" ? go() : null)}
+      aria-label={`Open ${referral.referredPersonName}'s profile`}
+    >
       <div className="flex items-start gap-3">
-        <Avatar className="h-10 w-10 border-2 border-accent/30">
-          <AvatarImage src={referral.avatarUrl} alt={referral.referredPersonName} />
-          <AvatarFallback className="bg-accent text-accent-foreground">
-            <User className="h-4 w-4" />
-          </AvatarFallback>
-        </Avatar>
+        <button
+          onClick={go}
+          className="focus:outline-none"
+          aria-label={`Open ${referral.referredPersonName}'s profile`}
+        >
+          <Avatar className="h-10 w-10 border-2 border-accent/30">
+            <AvatarImage src={referral.avatarUrl} alt={referral.referredPersonName} />
+            <AvatarFallback className="bg-accent text-accent-foreground">
+              <User className="h-4 w-4" />
+            </AvatarFallback>
+          </Avatar>
+        </button>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground truncate">{referral.referredPersonName}</h3>
+              <button
+                onClick={go}
+                className="font-semibold text-foreground truncate hover:underline"
+                title={referral.referredPersonName}
+              >
+                {referral.referredPersonName}
+              </button>
               <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
                 <MapPin className="h-3 w-3 flex-shrink-0" />
                 <span className="truncate">{referral.businessName}</span>
               </div>
             </div>
-            {/* Status badge removed */}
           </div>
-
-          {/* Time row removed */}
         </div>
       </div>
     </div>
@@ -284,12 +532,16 @@ const ProfilePage = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [referralCount, setReferralCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'Reviews' | 'Analytics'>('Reviews');
+  const [activeTab, setActiveTab] = useState<"Reviews" | "Analytics">("Reviews");
   const [showAllReviews, setShowAllReviews] = useState(false);
 
   // For achievements + UI
   const [myReferrals, setMyReferrals] = useState<any[]>([]);
   const [referralsUI, setReferralsUI] = useState<ReferralData[]>([]);
+  const [showAllReferrals, setShowAllReferrals] = useState(false); // NEW
+
+  const isTouch = useIsTouch(); // for responsive badge sizing
+  const badgeMin = isTouch ? 84 : 128; // mobile same as before, desktop BIGGER
 
   useEffect(() => {
     const fetchUserAndReviews = async () => {
@@ -298,6 +550,9 @@ const ProfilePage = () => {
         const idParam = (id || "").trim();
         const m = idParam.match(/^(.+?)(?:-(\d{3}))?$/);
         const targetBase = m ? m[1] : idParam;
+        the_target: {
+          /* block label – no-op to keep structure readable */
+        }
         const targetSuffix = m && m[2] ? m[2] : null;
 
         // Find user (paged)
@@ -307,7 +562,10 @@ const ProfilePage = () => {
         while (!foundUser) {
           const userResp = await axios.get(
             `https://api.airtable.com/v0/${BASE_ID}/${USERS_TABLE}`,
-            { headers: { Authorization: `Bearer ${API_KEY}` }, params: { pageSize: 100, offset: userOffset } }
+            {
+              headers: { Authorization: `Bearer ${API_KEY}` },
+              params: { pageSize: 100, offset: userOffset },
+            }
           );
 
           const candidates = userResp.data.records.filter((rec: any) => {
@@ -322,7 +580,9 @@ const ProfilePage = () => {
               airtableId: rec.id,
               name,
               phone: rec.fields["Phone"] || "",
-              image: Array.isArray(rec.fields.image) ? rec.fields.image[0]?.url : rec.fields.image,
+              image: Array.isArray(rec.fields.image)
+                ? rec.fields.image[0]?.url
+                : rec.fields.image,
               autogenInvite: rec.fields["Autogen Invite"] ?? "",
               bio: rec.fields["Bio"] ?? "",
               location: rec.fields["Location"] ?? "",
@@ -336,7 +596,7 @@ const ProfilePage = () => {
             }
             const canonical = `${baseSlug}-${l3 || "000"}`;
 
-            const isExact = targetSuffix ? (canonical === idParam) : (baseSlug === targetBase);
+            const isExact = targetSuffix ? canonical === idParam : baseSlug === targetBase;
             if (isExact) {
               foundUser = { ...candidate, handle: baseSlug, canonicalSlug: canonical };
               break;
@@ -361,7 +621,11 @@ const ProfilePage = () => {
         if (foundUser) {
           let offset: string | undefined = undefined;
           do {
-            const params = { pageSize: 100, offset, filterByFormula: `{ID (from Creator)}="${foundUser.id}"` };
+            const params = {
+              pageSize: 100,
+              offset,
+              filterByFormula: `{ID (from Creator)}="${foundUser.id}"`,
+            };
             const revResp = await axios.get(
               `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
               { headers: { Authorization: `Bearer ${API_KEY}` }, params }
@@ -373,7 +637,11 @@ const ProfilePage = () => {
           if (allReviews.length === 0) {
             let nameOffset: string | undefined = undefined;
             do {
-              const nameParams = { pageSize: 100, offset: nameOffset, filterByFormula: `{Name_Creator}="${foundUser.name}"` };
+              const nameParams = {
+                pageSize: 100,
+                offset: nameOffset,
+                filterByFormula: `{Name_Creator}="${foundUser.name}"`,
+              };
               const nameRevResp = await axios.get(
                 `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
                 { headers: { Authorization: `Bearer ${API_KEY}` }, params: nameParams }
@@ -384,10 +652,11 @@ const ProfilePage = () => {
           }
 
           const validReviews = allReviews
-            .filter((r: any) =>
-              !!r.fields.business_name &&
-              !!r.fields.Uplaud &&
-              typeof r.fields["Uplaud Score"] === "number"
+            .filter(
+              (r: any) =>
+                !!r.fields.business_name &&
+                !!r.fields.Uplaud &&
+                typeof r.fields["Uplaud Score"] === "number"
             )
             .map((r: any) => ({
               businessName: r.fields.business_name,
@@ -397,7 +666,7 @@ const ProfilePage = () => {
               shareLink: r.fields["Share Link"] || "",
               referralLink: r.fields["ReferralLink"] || "",
               location: r.fields.City || "",
-              category: r.fields.Category || "Other"
+              category: r.fields.Category || "Other",
             }))
             .sort((a, b) => {
               if (!a.date) return 1;
@@ -409,15 +678,22 @@ const ProfilePage = () => {
           setReviews([]);
         }
 
-        // ==== Referrals (dedupe receiver||business; keep latest status/date) ====
-        let unique = new Map<string, { receiver: string; business: string; status: "clicked" | "reviewed"; date: Date | null }>();
+        // Referrals (dedupe receiver||business; keep latest)
+        let unique = new Map<
+          string,
+          { receiver: string; business: string; status: "clicked" | "reviewed"; date: Date | null }
+        >();
         let rawForBadges: any[] = [];
 
         if (foundUser && foundUser.name) {
           let circles: any[] = [];
           let offset: string | undefined = undefined;
           do {
-            const params = { pageSize: 100, offset, filterByFormula: `{Initiator}="${foundUser.name}"` };
+            const params = {
+              pageSize: 100,
+              offset,
+              filterByFormula: `{Initiator}="${foundUser.name}"`,
+            };
             const circleResp = await axios.get(
               `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
               { headers: { Authorization: `Bearer ${API_KEY}` }, params }
@@ -427,17 +703,26 @@ const ProfilePage = () => {
           } while (offset);
 
           for (const c of circles) {
-            const receivers = Array.isArray(c.fields["Receiver"]) ? c.fields["Receiver"] : [c.fields["Receiver"]];
+            const receivers = Array.isArray(c.fields["Receiver"])
+              ? c.fields["Receiver"]
+              : [c.fields["Receiver"]];
             const business = c.fields["Business_Name"] || "";
-            const rawStatus = c.fields["ReviewStatus"] || c.fields["ReferralStatus"] || "Delivered";
+            const rawStatus =
+              c.fields["ReviewStatus"] || c.fields["ReferralStatus"] || "Delivered";
             const status = toReferralStatus(rawStatus);
-            const date: Date | null = c.fields["Date_Added"] ? new Date(c.fields["Date_Added"]) : null;
+            const date: Date | null = c.fields["Date_Added"]
+              ? new Date(c.fields["Date_Added"])
+              : null;
 
             for (const r of receivers) {
               if (!r || !business) continue;
               const key = `${r}||${business}`;
               const prev = unique.get(key);
-              if (!prev || (date && prev.date && date.getTime() > prev.date.getTime()) || (!prev.date && date)) {
+              if (
+                !prev ||
+                (date && prev.date && date.getTime() > prev.date.getTime()) ||
+                (!prev.date && date)
+              ) {
                 unique.set(key, { receiver: r, business, status, date });
               }
               rawForBadges.push({ receiver: r, business, status, date });
@@ -456,10 +741,9 @@ const ProfilePage = () => {
             businessName: item.business,
             timeAgo: timeAgo(item.date),
             status: item.status,
-            avatarUrl: makeAvatarUrl(item.receiver)
+            avatarUrl: makeAvatarUrl(item.receiver),
           }));
         setReferralsUI(ui);
-
       } catch (err) {
         setUser(null);
         setReviews([]);
@@ -479,23 +763,31 @@ const ProfilePage = () => {
   const averageScore = reviews.length
     ? (reviews.reduce((sum, r) => sum + (r.score || 0), 0) / reviews.length).toFixed(2)
     : "-";
-  const joinDate = (reviews.length > 0 && reviews[reviews.length - 1].date)
-    ? formatDate(reviews[reviews.length - 1].date)
-    : "—";
+  const joinDate =
+    reviews.length > 0 && reviews[reviews.length - 1].date
+      ? formatDate(reviews[reviews.length - 1].date)
+      : "—";
 
   // Achievements
   const achievements = getAchievements(user, reviews, referralCount, myReferrals);
-  const earnedAchievements = achievements.filter(a => a.isEarned);
-  const lockedAchievements = achievements.filter(a => !a.isEarned);
+  const earnedAchievements = achievements.filter((a) => a.isEarned);
+  const lockedAchievements = achievements.filter((a) => !a.isEarned);
 
   /** ========= REVIEW CARD ========= */
   function ReviewCardLocal({ review }: { review: any }) {
     if (!review.businessName || !review.uplaud) return null;
 
     return (
-      <div className="flex flex-col rounded-2xl px-5 sm:px-7 py-5 sm:py-6 shadow group transition hover:shadow-xl" style={{ alignItems: "flex-start", background: "#FFF7E6" }}>
+      <div
+        className="flex flex-col rounded-2xl px-5 sm:px-7 py-5 sm:py-6 shadow group transition hover:shadow-xl"
+        style={{ alignItems: "flex-start", background: "#FFF7E6" }}
+      >
         <div className="flex items-center w-full mb-2 gap-2">
-          <Link to={`/business/${slugify(review.businessName)}`} className="font-bold text-base sm:text-lg text-black hover:underline hover:text-purple-700 flex-1 min-w-0 truncate" title={review.businessName}>
+          <Link
+            to={`/business/${slugify(review.businessName)}`}
+            className="font-bold text-base sm:text-lg text-black hover:underline hover:text-purple-700 flex-1 min-w-0 truncate"
+            title={review.businessName}
+          >
             {review.businessName}
           </Link>
 
@@ -503,18 +795,25 @@ const ProfilePage = () => {
             {review.score ? (
               <span className="flex items-center shrink-0 whitespace-nowrap leading-none">
                 {Array.from({ length: review.score }).map((_, i) => (
-                  <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">★</span>
+                  <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">
+                    ★
+                  </span>
                 ))}
                 <span className="ml-1 text-lg sm:text-2xl leading-none">
                   {emojiForScore(review.score)}
                 </span>
               </span>
             ) : null}
-            <span className="text-gray-500 text-xs sm:text-sm font-medium leading-none">{formatDate(review.date)}</span>
+            <span className="text-gray-500 text-xs sm:text-sm font-medium leading-none">
+              {formatDate(review.date)}
+            </span>
           </div>
         </div>
 
-        <div className="mt-2 rounded-xl border px-4 sm:px-6 py-4 text-gray-900 shadow-sm text-base font-medium break-words" style={{ background: "#DCF8C6" }}>
+        <div
+          className="mt-2 rounded-xl border px-4 sm:px-6 py-4 text-gray-900 shadow-sm text-base font-medium break-words"
+          style={{ background: "#DCF8C6" }}
+        >
           <span style={{ display: "block", wordBreak: "break-word" }}>{review.uplaud}</span>
         </div>
       </div>
@@ -522,12 +821,21 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="min-h-screen w-full font-sans text-gray-800 relative" style={{ background: "#6D46C6", fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif` }}>
+    <div
+      className="min-h-screen w-full font-sans text-gray-800 relative"
+      style={{ background: "#6D46C6", fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif` }}
+    >
       {/* Back Button */}
       <button
         onClick={() => navigate("/leaderboard")}
         className="fixed sm:absolute top-4 left-4 z-50 font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
-        style={{ minWidth: 44, minHeight: 44, background: "rgba(255,255,255,0.88)", color: "#6D46C6", backdropFilter: "blur(6px)" }}
+        style={{
+          minWidth: 44,
+          minHeight: 44,
+          background: "rgba(255,255,255,0.88)",
+          color: "#6D46C6",
+          backdropFilter: "blur(6px)",
+        }}
       >
         <ArrowLeft className="w-5 h-5" />
         <span className="hidden sm:inline">Back</span>
@@ -535,13 +843,24 @@ const ProfilePage = () => {
 
       <div className="max-w-4xl mx-auto space-y-6 relative z-10 pt-16 sm:pt-0 px-2 sm:px-0">
         {/* Profile Card */}
-        <div className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-6" style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.6)" }}>
+        <div
+          className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-6"
+          style={{
+            background: "rgba(255,255,255,0.75)",
+            backdropFilter: "blur(8px)",
+            borderColor: "rgba(255,255,255,0.6)",
+          }}
+        >
           <div className="flex items-center gap-4">
             <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-purple-100 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-purple-700 select-none">
               {user?.image ? (
-                <img src={user.image} alt={user?.name || 'User'} className="w-full h-full object-cover rounded-full" />
+                <img
+                  src={user.image}
+                  alt={user?.name || "User"}
+                  className="w-full h-full object-cover rounded-full"
+                />
               ) : (
-                user?.name?.split(' ').map((n: string) => n[0]).join('')
+                user?.name?.split(" ").map((n: string) => n[0]).join("")
               )}
             </div>
 
@@ -549,17 +868,20 @@ const ProfilePage = () => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2 flex-wrap">
-                  <h2 className="font-extrabold text-xl sm:text-2xl truncate">
-                    {user?.name}
-                  </h2>
+                  <h2 className="font-extrabold text-xl sm:text-2xl truncate">{user?.name}</h2>
                   {user?.handle && (
-                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">@{user.handle}</span>
+                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">
+                      @{user.handle}
+                    </span>
                   )}
                 </div>
 
-                {/* Mobile share (inline, right side of username) */}
+                {/* Mobile share (inline) */}
                 <button
-                  onClick={() => { if (!user) return; window.open(getWhatsAppShareLink(user), "_blank"); }}
+                  onClick={() => {
+                    if (!user) return;
+                    window.open(getWhatsAppShareLink(user), "_blank");
+                  }}
                   className="sm:hidden shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white/80 p-2 shadow"
                   aria-label="Share profile"
                   title="Share Profile"
@@ -570,14 +892,21 @@ const ProfilePage = () => {
 
               <p className="text-sm flex flex-wrap items-center gap-2 text-gray-700 mt-1">
                 <Calendar size={16} /> Joined {joinDate}
-                {user?.location && (<><MapPin size={16} /> {user.location}</>)}
+                {user?.location && (
+                  <>
+                    <MapPin size={16} /> {user.location}
+                  </>
+                )}
               </p>
               {user?.bio && <p className="text-sm mt-1 text-gray-700">{user.bio}</p>}
             </div>
 
-            {/* Desktop share (far right) */}
+            {/* Desktop share */}
             <button
-              onClick={() => { if (!user) return; window.open(getWhatsAppShareLink(user), "_blank"); }}
+              onClick={() => {
+                if (!user) return;
+                window.open(getWhatsAppShareLink(user), "_blank");
+              }}
               className="hidden sm:flex items-center justify-center border border-gray-200 text-gray-700 px-3 py-2 rounded-lg shadow"
               title="Share Profile"
               style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)" }}
@@ -586,12 +915,23 @@ const ProfilePage = () => {
             </button>
           </div>
 
-          {/* colored stat pills */}
-          <ColoredStatsTabs totalReviews={totalReviews} points={points} referralCount={referralCount} />
+          {/* stats */}
+          <ColoredStatsTabs
+            totalReviews={totalReviews}
+            points={points}
+            referralCount={referralCount}
+          />
         </div>
 
-        {/* Achievements */}
-        <Card className="w-full backdrop-blur-md" style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.35)", boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}>
+        {/* Achievements (earned) */}
+        <Card
+          className="w-full backdrop-blur-md"
+          style={{
+            background: "rgba(255,255,255,0.16)",
+            border: "1px solid rgba(255,255,255,0.35)",
+            boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+          }}
+        >
           <div className="flex items-center gap-3 px-3 pt-3">
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600">
               <Trophy className="w-4 h-4 text-white" />
@@ -601,25 +941,19 @@ const ProfilePage = () => {
 
           <div className="px-3 pb-3">
             {earnedAchievements.length === 0 ? (
-              <div className="text-center text-white/90 py-6 text-sm">No badges yet — start reviewing to earn your first badge!</div>
+              <div className="text-center text-white/90 py-6 text-sm">
+                No badges yet — start reviewing to earn your first badge!
+              </div>
             ) : (
               <TooltipProvider>
-                <div className="gap-3 grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))" }}>
+                <div
+                  className="gap-3 grid"
+                  style={{
+                    gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
+                  }}
+                >
                   {earnedAchievements.map((a) => (
-                    <Tooltip key={a.id}>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-pointer text-center">
-                          <img src={a.image} alt={a.name} className="w-full h-auto object-contain" style={{ aspectRatio: "1 / 1" }} />
-                          <p className="mt-1 text-[11px] font-semibold text-white leading-tight">{a.name}</p>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs border" style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}>
-                        <div className="text-center">
-                          <p className="font-semibold">{a.name}</p>
-                          <p className="text-xs opacity-90 mt-1">{a.description}</p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
+                    <BadgeTile key={a.id} badge={a} size={badgeMin} />
                   ))}
                 </div>
               </TooltipProvider>
@@ -628,10 +962,35 @@ const ProfilePage = () => {
         </Card>
 
         {/* Tabs */}
-        <div className="rounded-2xl shadow p-4 border" style={{ background: "rgba(255,255,255,0.80)", borderColor: "rgba(255,255,255,0.7)", backdropFilter: "blur(8px)" }}>
+        <div
+          className="rounded-2xl shadow p-4 border"
+          style={{
+            background: "rgba(255,255,255,0.80)",
+            borderColor: "rgba(255,255,255,0.7)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
           <div className="flex gap-6 border-b mb-6 text-base font-semibold">
-            <button className={`pb-2 ${activeTab === 'Reviews' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-600 hover:text-purple-700'}`} onClick={() => setActiveTab('Reviews')}>Reviews</button>
-            <button className={`pb-2 ${activeTab === 'Analytics' ? 'border-b-2 border-purple-600 text-purple-700' : 'text-gray-600 hover:text-purple-700'}`} onClick={() => setActiveTab('Analytics')}>Activity</button>
+            <button
+              className={`pb-2 ${
+                activeTab === "Reviews"
+                  ? "border-b-2 border-purple-600 text-purple-700"
+                  : "text-gray-600 hover:text-purple-700"
+              }`}
+              onClick={() => setActiveTab("Reviews")}
+            >
+              Reviews
+            </button>
+            <button
+              className={`pb-2 ${
+                activeTab === "Analytics"
+                  ? "border-b-2 border-purple-600 text-purple-700"
+                  : "text-gray-600 hover:text-purple-700"
+              }`}
+              onClick={() => setActiveTab("Analytics")}
+            >
+              Activity
+            </button>
           </div>
 
           {activeTab === "Reviews" && (
@@ -639,7 +998,9 @@ const ProfilePage = () => {
               {loading ? (
                 <div className="text-center text-gray-400 py-8">Loading reviews…</div>
               ) : reviews.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">No reviews found for this user.</div>
+                <div className="text-center text-gray-500 py-8">
+                  No reviews found for this user.
+                </div>
               ) : (
                 <div>
                   <div className="space-y-7">
@@ -649,7 +1010,10 @@ const ProfilePage = () => {
                   </div>
                   {reviews.length > 5 && (
                     <div className="flex justify-center mt-6">
-                      <button className="px-5 py-2 rounded-lg bg-purple-100 text-purple-700 font-bold hover:bg-purple-200 shadow transition" onClick={() => setShowAllReviews(prev => !prev)}>
+                      <button
+                        className="px-5 py-2 rounded-lg bg-purple-100 text-purple-700 font-bold hover:bg-purple-200 shadow transition"
+                        onClick={() => setShowAllReviews((prev) => !prev)}
+                      >
                         {showAllReviews ? "Show Less" : "Load More Reviews"}
                       </button>
                     </div>
@@ -665,7 +1029,7 @@ const ProfilePage = () => {
                 <BarChart2 className="w-5 h-5 text-cyan-600" /> Activities
               </h2>
 
-              {/* ===== Summary stats BEFORE referrals ===== */}
+              {/* Summary stats */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="rounded-xl p-3 bg-white/70 border shadow-sm flex items-center gap-3">
                   <Star className="w-5 h-5 text-amber-500" />
@@ -683,61 +1047,45 @@ const ProfilePage = () => {
                 </div>
               </div>
 
-              {/* ===== Recent Referrals (status/time hidden) ===== */}
-              <h3 className="text-base font-semibold text-gray-800 mb-3">Recent Referrals</h3>
-              <div className="space-y-3 mb-8">
+              {/* Recent Referrals */}
+              <h3 className="text-base font-semibold text-gray-800 mb-3">Your Referrals</h3>
+              <div className="space-y-3 mb-4">
                 {referralsUI.length === 0 ? (
                   <div className="text-gray-400">You haven’t referred anyone yet.</div>
                 ) : (
-                  referralsUI.map((r) => <ReferralCard key={r.id} referral={r} />)
+                  (showAllReferrals ? referralsUI : referralsUI.slice(0, 5)).map((r) => (
+                    <ReferralCard key={r.id} referral={r} />
+                  ))
                 )}
               </div>
+              {referralsUI.length > 5 && (
+                <div className="flex justify-center mb-8">
+                  <button
+                    className="px-5 py-2 rounded-lg bg-purple-100 text-purple-700 font-bold hover:bg-purple-200 shadow transition"
+                    onClick={() => setShowAllReferrals((v) => !v)}
+                  >
+                    {showAllReferrals ? "Show Less" : "Load More Referrals"}
+                  </button>
+                </div>
+              )}
 
-              {/* ===== Badge Goals after referrals ===== */}
+              {/* Badge Goals (locked / progress) */}
               <div className="mb-2">
                 <div className="font-semibold text-gray-700 mb-2">Badge Goals</div>
                 {lockedAchievements.length === 0 ? (
-                  <div className="text-gray-500 text-sm">You’ve unlocked all available badges. 🙌</div>
+                  <div className="text-gray-500 text-sm">
+                    You’ve unlocked all available badges. 🙌
+                  </div>
                 ) : (
                   <TooltipProvider>
-                    <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                    <div
+                      className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"
+                      style={{
+                        gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
+                      }}
+                    >
                       {lockedAchievements.map((a) => (
-                        <Tooltip key={a.id} >
-                          <TooltipTrigger asChild>
-                            <div className="group cursor-pointer">
-                              <div className="relative rounded-xl overflow-hidden" style={{ width: 84, height: 84, margin: "0 auto" }}>
-                                <img src={a.image} alt={a.name} className="w-full h-full object-contain opacity-70 group-hover:opacity-100 transition" />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <Lock className="w-5 h-5 text-white/90 drop-shadow" />
-                                </div>
-                              </div>
-                              <div className="mt-1 text-center">
-                                <p className="text-[11px] font-semibold text-gray-800 leading-tight truncate">{a.name}</p>
-                                {a.progress && (
-                                  <div className="mt-1">
-                                    <div className="w-full bg-muted rounded-full h-1">
-                                      <div className="bg-purple-600 h-1 rounded-full transition-all duration-300" style={{ width: `${(a.progress.current / a.progress.total) * 100}%` }} />
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                      {a.progress.current}/{a.progress.total}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="max-w-xs border" style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}>
-                            <div className="text-center">
-                              <p className="font-semibold">{a.name}</p>
-                              <p className="text-xs opacity-90 mt-1">{a.description}</p>
-                              {a.progress && (
-                                <Badge variant="secondary" className="mt-2 bg-purple-100 text-purple-700 border-purple-200">
-                                  {a.progress.current}/{a.progress.total} progress
-                                </Badge>
-                              )}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
+                        <BadgeTile key={a.id} badge={a} locked showProgress size={badgeMin} />
                       ))}
                     </div>
                   </TooltipProvider>
