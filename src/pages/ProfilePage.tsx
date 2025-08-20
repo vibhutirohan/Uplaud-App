@@ -9,12 +9,12 @@ import {
   ArrowLeft,
   Share2,
   BarChart2,
-  Trophy,
   Lock,
   User,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import axios from "axios";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
   Tooltip,
@@ -111,9 +111,11 @@ const BADGES = [
       const days = [
         ...new Set(
           user.reviews
-            .map((r: any) =>
-              r.date && !isNaN(r.date.getTime()) ? r.date.toDateString() : null
-            )
+            .map((r: any) => {
+              const d =
+                r.date instanceof Date ? r.date : r.date ? new Date(r.date) : null;
+              return d && !isNaN(d.getTime()) ? d.toDateString() : null;
+            })
             .filter(Boolean)
         ),
       ]
@@ -123,12 +125,9 @@ const BADGES = [
       let streak = 1,
         maxStreak = 1;
       for (let i = 1; i < days.length; i++) {
-        if ((days[i] as any) - (days[i - 1] as any) === 24 * 3600 * 1000) {
-          streak++;
-          maxStreak = Math.max(maxStreak, streak);
-        } else {
-          streak = 1;
-        }
+        if ((days[i] as any) - (days[i - 1] as any) === 24 * 3600 * 1000) streak++;
+        else streak = 1;
+        maxStreak = Math.max(maxStreak, streak);
       }
       return { current: Math.min(maxStreak, 7), total: 7, isEarned: maxStreak >= 7 };
     },
@@ -139,9 +138,9 @@ const BADGES = [
     description: "10+ referrals in 1 week",
     image: "Viral_Star.png",
     progress: (user: any) => {
-      if (!user.myReferrals || user.myReferrals.length < 10)
-        return { current: 0, total: 10, isEarned: false };
-      const refDates = user.myReferrals
+      const refs = user.myReferrals || [];
+      if (refs.length < 10) return { current: 0, total: 10, isEarned: false };
+      const refDates = refs
         .map((ref: any) => (ref.date ? new Date(ref.date) : null))
         .filter(Boolean)
         .sort((a: any, b: any) => (a as any) - (b as any));
@@ -154,20 +153,12 @@ const BADGES = [
           break;
         }
       }
-      return {
-        current: Math.min(user.myReferrals.length, 10),
-        total: 10,
-        isEarned: earned,
-      };
+      return { current: Math.min(refs.length, 10), total: 10, isEarned: earned };
     },
   },
 ];
-
-const getGenderFolder = (gender?: string) => {
-  if (!gender) return "Male";
-  if (gender.toLowerCase().startsWith("f")) return "Female";
-  return "Male";
-};
+const getGenderFolder = (gender?: string) =>
+  !gender ? "Male" : gender.toLowerCase().startsWith("f") ? "Female" : "Male";
 
 function getAchievements(
   user: any,
@@ -197,10 +188,7 @@ function getAchievements(
 
 /* ===================== Utilities ===================== */
 function slugify(name = "") {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
 }
 function formatDate(date?: Date | null) {
   if (!date) return "";
@@ -222,7 +210,7 @@ function getWhatsAppShareLink(user?: any) {
   let phone = user?.autogenInvite || "";
   const urlMatch = phone.match(/(?:wa\.me\/|\/)(\d{10,15})/);
   if (urlMatch && urlMatch[1]) phone = urlMatch[1];
-  phone = phone.replace(/[^0-9]/g, "");
+  phone = (phone || "").replace(/[^0-9]/g, "");
   const msg = `Add me to ${user?.name || "your"}'s circle`;
   return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 }
@@ -262,7 +250,7 @@ async function fetchLast3FromReviews(foundUser: any) {
   }
 }
 
-/* Time ago + referral helpers */
+/* Helpers */
 function timeAgo(from?: Date | null) {
   if (!from) return "just now";
   const ms = Date.now() - from.getTime();
@@ -285,8 +273,13 @@ function makeAvatarUrl(name: string) {
   const n = encodeURIComponent(name || "User");
   return `https://ui-avatars.com/api/?name=${n}&size=150&background=random`;
 }
+function possessive(name: string) {
+  if (!name) return "";
+  const trimmed = name.trim();
+  return trimmed.endsWith("s") || trimmed.endsWith("S") ? `${trimmed}'` : `${trimmed}'s`;
+}
 
-/* ===================== Touch detection for mobile pop-outs ===================== */
+/* ===================== Touch detection ===================== */
 function useIsTouch() {
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
@@ -304,7 +297,7 @@ function useIsTouch() {
   return isTouch;
 }
 
-/* ===================== UI Bits ===================== */
+/* ===================== Colored stat pills ===================== */
 const ColoredStatsTabs = ({
   totalReviews,
   points,
@@ -366,12 +359,14 @@ const ColoredStatsTabs = ({
   );
 };
 
-/* ===== Badge tile: hover tooltip on desktop, TAP pop-out on mobile ===== */
+/* ===== Badge tile (desktop hover tooltip, mobile tap pop-out) ===== */
 function BadgeTile({
   badge,
   locked = false,
   showProgress = false,
   size = 84,
+  textClass,
+  progressTextClass,
 }: {
   badge: {
     id: string;
@@ -383,13 +378,13 @@ function BadgeTile({
   locked?: boolean;
   showProgress?: boolean;
   size?: number;
+  textClass?: string;
+  progressTextClass?: string;
 }) {
   const isTouch = useIsTouch();
   const [open, setOpen] = useState(false);
 
-  const isStreak = badge.id === "streak_star"; // highlight this one in purple (track + fill + text)
-  const nameColor = locked ? "text-gray-800" : "text-white";
-
+  const nameColor = textClass || (locked ? "text-gray-800" : "text-white");
   const pct =
     badge.progress && badge.progress.total > 0
       ? Math.min(100, (badge.progress.current / badge.progress.total) * 100)
@@ -419,23 +414,15 @@ function BadgeTile({
 
       {showProgress && badge.progress && (
         <div className="mt-1">
-          <div className={`w-full rounded-full h-1 ${isStreak ? "bg-purple-100" : "bg-gray-200"}`}>
-            <div
-              className={`${isStreak ? "bg-purple-600" : "bg-purple-600"} h-1 rounded-full`}
-              style={{ width: `${pct}%` }}
-            />
+          <div className="w-full rounded-full h-1 bg-white/30">
+            <div className="bg-purple-600 h-1 rounded-full" style={{ width: `${pct}%` }} />
           </div>
-          <p
-            className={`text-[10px] mt-1 ${
-              isStreak ? "text-purple-700 font-semibold" : "text-gray-600"
-            }`}
-          >
+          <p className={`${progressTextClass || "text-white/90"} text-[10px] mt-1`}>
             {badge.progress.current}/{badge.progress.total}
           </p>
         </div>
       )}
 
-      {/* Mobile pop-out */}
       {isTouch && open && (
         <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-44 rounded-md border bg-white text-gray-800 text-xs shadow-lg px-3 py-2">
           <div className="font-semibold">{badge.name}</div>
@@ -447,7 +434,6 @@ function BadgeTile({
 
   if (isTouch) return inner;
 
-  // Desktop: shadcn tooltip on hover
   return (
     <Tooltip>
       <TooltipTrigger asChild>{inner}</TooltipTrigger>
@@ -465,11 +451,12 @@ function BadgeTile({
   );
 }
 
-/* ===== ReferralCard (click user name → profile) ===== */
+/* ===== Referral Card (shows date) ===== */
 export interface ReferralData {
   id: string;
   referredPersonName: string;
   businessName: string;
+  date: string;        // formatted date
   timeAgo: string;
   status: "clicked" | "reviewed";
   avatarUrl?: string;
@@ -488,11 +475,7 @@ const ReferralCard = ({ referral }: { referral: ReferralData }) => {
       aria-label={`Open ${referral.referredPersonName}'s profile`}
     >
       <div className="flex items-start gap-3">
-        <button
-          onClick={go}
-          className="focus:outline-none"
-          aria-label={`Open ${referral.referredPersonName}'s profile`}
-        >
+        <button onClick={go} className="focus:outline-none" aria-label={`Open ${referral.referredPersonName}'s profile`}>
           <Avatar className="h-10 w-10 border-2 border-accent/30">
             <AvatarImage src={referral.avatarUrl} alt={referral.referredPersonName} />
             <AvatarFallback className="bg-accent text-accent-foreground">
@@ -504,16 +487,18 @@ const ReferralCard = ({ referral }: { referral: ReferralData }) => {
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <button
-                onClick={go}
-                className="font-semibold text-foreground truncate hover:underline"
-                title={referral.referredPersonName}
-              >
+              <button onClick={go} className="font-semibold text-foreground truncate hover:underline" title={referral.referredPersonName}>
                 {referral.referredPersonName}
               </button>
+
               <div className="flex items-center gap-1 text-muted-foreground text-sm mt-1">
                 <MapPin className="h-3 w-3 flex-shrink-0" />
                 <span className="truncate">{referral.businessName}</span>
+              </div>
+
+              <div className="flex items-center gap-1 text-muted-foreground text-xs mt-1">
+                <Calendar className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{referral.date}</span>
               </div>
             </div>
           </div>
@@ -535,13 +520,12 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState<"Reviews" | "Analytics">("Reviews");
   const [showAllReviews, setShowAllReviews] = useState(false);
 
-  // For achievements + UI
   const [myReferrals, setMyReferrals] = useState<any[]>([]);
   const [referralsUI, setReferralsUI] = useState<ReferralData[]>([]);
-  const [showAllReferrals, setShowAllReferrals] = useState(false); // NEW
+  const [showAllReferrals, setShowAllReferrals] = useState(false);
 
-  const isTouch = useIsTouch(); // for responsive badge sizing
-  const badgeMin = isTouch ? 84 : 128; // mobile same as before, desktop BIGGER
+  const isTouch = useIsTouch();
+  const badgeMin = isTouch ? 84 : 128;
 
   useEffect(() => {
     const fetchUserAndReviews = async () => {
@@ -550,12 +534,9 @@ const ProfilePage = () => {
         const idParam = (id || "").trim();
         const m = idParam.match(/^(.+?)(?:-(\d{3}))?$/);
         const targetBase = m ? m[1] : idParam;
-        the_target: {
-          /* block label – no-op to keep structure readable */
-        }
         const targetSuffix = m && m[2] ? m[2] : null;
 
-        // Find user (paged)
+        // Find user
         let foundUser: any = null;
         let userOffset: string | undefined = undefined;
 
@@ -678,7 +659,7 @@ const ProfilePage = () => {
           setReviews([]);
         }
 
-        // Referrals (dedupe receiver||business; keep latest)
+        // Referrals (dedupe receiver||business)
         let unique = new Map<
           string,
           { receiver: string; business: string; status: "clicked" | "reviewed"; date: Date | null }
@@ -739,6 +720,7 @@ const ProfilePage = () => {
             id: `${i + 1}`,
             referredPersonName: item.receiver,
             businessName: item.business,
+            date: item.date ? formatDate(item.date) : "",
             timeAgo: timeAgo(item.date),
             status: item.status,
             avatarUrl: makeAvatarUrl(item.receiver),
@@ -757,12 +739,14 @@ const ProfilePage = () => {
     if (id) fetchUserAndReviews();
   }, [id, navigate]);
 
-  // Stats
-  const points = reviews.length * 10 + referralCount * 20;
+  // Stats & breakdown like Dashboard
+  const pointsPerReview = 10;
+  const pointsPerReferral = 20;
   const totalReviews = reviews.length;
-  const averageScore = reviews.length
-    ? (reviews.reduce((sum, r) => sum + (r.score || 0), 0) / reviews.length).toFixed(2)
-    : "-";
+  const pointsFromReviews = totalReviews * pointsPerReview;
+  const pointsFromReferrals = referralCount * pointsPerReferral;
+  const points = pointsFromReviews + pointsFromReferrals;
+
   const joinDate =
     reviews.length > 0 && reviews[reviews.length - 1].date
       ? formatDate(reviews[reviews.length - 1].date)
@@ -773,69 +757,121 @@ const ProfilePage = () => {
   const earnedAchievements = achievements.filter((a) => a.isEarned);
   const lockedAchievements = achievements.filter((a) => !a.isEarned);
 
+  // Breakdown items (first 10)
+  const reviewBreakdownItems = reviews.slice(0, 10).map((r) => ({
+    label: `Review: ${r.businessName}`,
+    when: r.date ? formatDate(r.date) : "",
+  }));
+  const referralBreakdownItems =
+    (myReferrals && myReferrals.length
+      ? myReferrals.slice(0, 10).map((ref: any) => ({
+          label: `Successful referral${ref.name ? `: ${ref.name}` : ""}`,
+          when: ref.date ? formatDate(ref.date) : "",
+        }))
+      : referralCount > 0
+      ? [{ label: `Successful referrals × ${referralCount}`, when: "" }]
+      : []) as Array<{ label: string; when?: string }>;
+
+  const handleShareProfileToWhatsAppOnly = () => {
+    if (!user) return;
+    const wa = getWhatsAppShareLink(user);
+    window.open(wa, "_blank");
+  };
+
+  // Accordion UI state
+  const [openReviewsPB, setOpenReviewsPB] = useState(true);
+  const [openRefPB, setOpenRefPB] = useState(true);
+
   /** ========= REVIEW CARD ========= */
   function ReviewCardLocal({ review }: { review: any }) {
     if (!review.businessName || !review.uplaud) return null;
 
-    return (
-      <div
-        className="flex flex-col rounded-2xl px-5 sm:px-7 py-5 sm:py-6 shadow group transition hover:shadow-xl"
-        style={{ alignItems: "flex-start", background: "#FFF7E6" }}
-      >
-        <div className="flex items-center w-full mb-2 gap-2">
-          <Link
-            to={`/business/${slugify(review.businessName)}`}
-            className="font-bold text-base sm:text-lg text-black hover:underline hover:text-purple-700 flex-1 min-w-0 truncate"
-            title={review.businessName}
-          >
-            {review.businessName}
-          </Link>
+    // OPEN WHATSAPP ONLY + use ReferralLink from Uplaud table
+    const handleShare = () => {
+      const link =
+        review.referralLink ||
+        review.shareLink ||
+        `${window.location.origin}/business/${slugify(review.businessName)}`;
 
-          <div className="ml-auto flex items-center gap-2 shrink-0 whitespace-nowrap">
-            {review.score ? (
-              <span className="flex items-center shrink-0 whitespace-nowrap leading-none">
-                {Array.from({ length: review.score }).map((_, i) => (
-                  <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">
-                    ★
+      const message = `Hey, check out this Real Review for ${review.businessName} on Uplaud. It’s a platform where real people give honest reviews on WhatsApp:\n${link}`;
+      const wa = `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+      // Redirect specifically to WhatsApp
+      window.location.href = wa;
+    };
+
+    return (
+      <div className="flex flex-col rounded-2xl shadow transition hover:shadow-xl overflow-hidden" style={{ background: "#FFF7E6" }}>
+        <div className="w-full px-5 pt-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Link
+              to={`/business/${slugify(review.businessName)}`}
+              className="w-full sm:flex-1 font-bold text-base sm:text-lg text-black hover:underline hover:text-purple-700 break-words whitespace-normal leading-tight"
+              title={review.businessName}
+              style={{ hyphens: "auto" }}
+            >
+              {review.businessName}
+            </Link>
+
+            <div className="flex items-center gap-3 sm:ml-auto self-end">
+              {review.score ? (
+                <span className="flex items-center leading-none">
+                  {Array.from({ length: review.score }).map((_, i) => (
+                    <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">★</span>
+                  ))}
+                  <span className="ml-1 text-lg sm:text-2xl leading-none">
+                    {emojiForScore(review.score)}
                   </span>
-                ))}
-                <span className="ml-1 text-lg sm:text-2xl leading-none">
-                  {emojiForScore(review.score)}
                 </span>
+              ) : null}
+
+              <span className="text-gray-500 text-xs sm:text-sm font-medium leading-none">
+                {formatDate(review.date)}
               </span>
-            ) : null}
-            <span className="text-gray-500 text-xs sm:text-sm font-medium leading-none">
-              {formatDate(review.date)}
-            </span>
+
+              <button
+                onClick={handleShare}
+                className="inline-flex items-center justify-center rounded-md border border-black/10 bg-white/90 p-2 shadow hover:bg-white"
+                aria-label="Share this review on WhatsApp"
+                title="Share on WhatsApp"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div
-          className="mt-2 rounded-xl border px-4 sm:px-6 py-4 text-gray-900 shadow-sm text-base font-medium break-words"
-          style={{ background: "#DCF8C6" }}
-        >
-          <span style={{ display: "block", wordBreak: "break-word" }}>{review.uplaud}</span>
+        <div className="mt-3 w-full">
+          <div className="w-full px-5 py-4 text-gray-900 text-base font-medium break-words" style={{ background: "#DCF8C6" }}>
+            <span style={{ display: "block", wordBreak: "break-word" }}>{review.uplaud}</span>
+          </div>
         </div>
+
+        <div className="pb-4" />
       </div>
     );
   }
 
+  if (loading)
+    return (
+      <div className="flex justify-center items-center h-80 text-lg text-white/90" style={{ background: "#6D46C6" }}>
+        Loading…
+      </div>
+    );
+  if (!user)
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white" style={{ background: "#6D46C6" }}>
+        User not found. Please log in again.
+      </div>
+    );
+
   return (
-    <div
-      className="min-h-screen w-full font-sans text-gray-800 relative"
-      style={{ background: "#6D46C6", fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif` }}
-    >
+    <div className="min-h-screen w-full font-sans text-gray-800 relative" style={{ background: "#6D46C6", fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif` }}>
       {/* Back Button */}
       <button
         onClick={() => navigate("/leaderboard")}
         className="fixed sm:absolute top-4 left-4 z-50 font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
-        style={{
-          minWidth: 44,
-          minHeight: 44,
-          background: "rgba(255,255,255,0.88)",
-          color: "#6D46C6",
-          backdropFilter: "blur(6px)",
-        }}
+        style={{ minWidth: 44, minHeight: 44, background: "rgba(255,255,255,0.88)", color: "#6D46C6", backdropFilter: "blur(6px)" }}
       >
         <ArrowLeft className="w-5 h-5" />
         <span className="hidden sm:inline">Back</span>
@@ -843,45 +879,28 @@ const ProfilePage = () => {
 
       <div className="max-w-4xl mx-auto space-y-6 relative z-10 pt-16 sm:pt-0 px-2 sm:px-0">
         {/* Profile Card */}
-        <div
-          className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-6"
-          style={{
-            background: "rgba(255,255,255,0.75)",
-            backdropFilter: "blur(8px)",
-            borderColor: "rgba(255,255,255,0.6)",
-          }}
-        >
+        <div className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-6" style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.6)" }}>
           <div className="flex items-center gap-4">
             <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-purple-100 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-purple-700 select-none">
               {user?.image ? (
-                <img
-                  src={user.image}
-                  alt={user?.name || "User"}
-                  className="w-full h-full object-cover rounded-full"
-                />
+                <img src={user.image} alt={user?.name || "User"} className="w-full h-full object-cover rounded-full" />
               ) : (
                 user?.name?.split(" ").map((n: string) => n[0]).join("")
               )}
             </div>
 
-            {/* Name/handle + mobile share on the right (inline) */}
+            {/* Name/handle + mobile share */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2 flex-wrap">
                   <h2 className="font-extrabold text-xl sm:text-2xl truncate">{user?.name}</h2>
                   {user?.handle && (
-                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">
-                      @{user.handle}
-                    </span>
+                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">@{user.handle}</span>
                   )}
                 </div>
 
-                {/* Mobile share (inline) */}
                 <button
-                  onClick={() => {
-                    if (!user) return;
-                    window.open(getWhatsAppShareLink(user), "_blank");
-                  }}
+                  onClick={handleShareProfileToWhatsAppOnly}
                   className="sm:hidden shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white/80 p-2 shadow"
                   aria-label="Share profile"
                   title="Share Profile"
@@ -903,10 +922,7 @@ const ProfilePage = () => {
 
             {/* Desktop share */}
             <button
-              onClick={() => {
-                if (!user) return;
-                window.open(getWhatsAppShareLink(user), "_blank");
-              }}
+              onClick={handleShareProfileToWhatsAppOnly}
               className="hidden sm:flex items-center justify-center border border-gray-200 text-gray-700 px-3 py-2 rounded-lg shadow"
               title="Share Profile"
               style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)" }}
@@ -915,43 +931,18 @@ const ProfilePage = () => {
             </button>
           </div>
 
-          {/* stats */}
-          <ColoredStatsTabs
-            totalReviews={totalReviews}
-            points={points}
-            referralCount={referralCount}
-          />
+          {/* Stats */}
+          <ColoredStatsTabs totalReviews={reviews.length} points={points} referralCount={referralCount} />
         </div>
 
-        {/* Achievements (earned) */}
-        <Card
-          className="w-full backdrop-blur-md"
-          style={{
-            background: "rgba(255,255,255,0.16)",
-            border: "1px solid rgba(255,255,255,0.35)",
-            boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
-          }}
-        >
-          <div className="flex items-center gap-3 px-3 pt-3">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600">
-              <Trophy className="w-4 h-4 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold text-white">Achievements</h3>
-          </div>
-
-          <div className="px-3 pb-3">
+        {/* Earned badges */}
+        <Card className="w-full backdrop-blur-md" style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.35)", boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}>
+          <div className="px-3 pb-3 pt-3">
             {earnedAchievements.length === 0 ? (
-              <div className="text-center text-white/90 py-6 text-sm">
-                No badges yet — start reviewing to earn your first badge!
-              </div>
+              <div className="text-center text-white/90 py-1 text-sm">No badges yet — start reviewing to earn your first badge!</div>
             ) : (
               <TooltipProvider>
-                <div
-                  className="gap-3 grid"
-                  style={{
-                    gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
-                  }}
-                >
+                <div className="gap-3 grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))` }}>
                   {earnedAchievements.map((a) => (
                     <BadgeTile key={a.id} badge={a} size={badgeMin} />
                   ))}
@@ -961,32 +952,17 @@ const ProfilePage = () => {
           </div>
         </Card>
 
-        {/* Tabs */}
-        <div
-          className="rounded-2xl shadow p-4 border"
-          style={{
-            background: "rgba(255,255,255,0.80)",
-            borderColor: "rgba(255,255,255,0.7)",
-            backdropFilter: "blur(8px)",
-          }}
-        >
-          <div className="flex gap-6 border-b mb-6 text-base font-semibold">
+        {/* Tabs container */}
+        <div className="rounded-2xl p-4" style={{ background: "transparent", borderColor: "transparent" }}>
+          <div className="flex gap-6 mb-6 text-base font-semibold border-b border-white/30">
             <button
-              className={`pb-2 ${
-                activeTab === "Reviews"
-                  ? "border-b-2 border-purple-600 text-purple-700"
-                  : "text-gray-600 hover:text-purple-700"
-              }`}
+              className={`pb-2 -mb-[2px] px-1 transition ${activeTab === "Reviews" ? "text-white border-b-2 border-white" : "text-white/80 hover:text-white"}`}
               onClick={() => setActiveTab("Reviews")}
             >
               Reviews
             </button>
             <button
-              className={`pb-2 ${
-                activeTab === "Analytics"
-                  ? "border-b-2 border-purple-600 text-purple-700"
-                  : "text-gray-600 hover:text-purple-700"
-              }`}
+              className={`pb-2 -mb-[2px] px-1 transition ${activeTab === "Analytics" ? "text-white border-b-2 border-white" : "text-white/80 hover:text-white"}`}
               onClick={() => setActiveTab("Analytics")}
             >
               Activity
@@ -995,12 +971,8 @@ const ProfilePage = () => {
 
           {activeTab === "Reviews" && (
             <div>
-              {loading ? (
-                <div className="text-center text-gray-400 py-8">Loading reviews…</div>
-              ) : reviews.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
-                  No reviews found for this user.
-                </div>
+              {reviews.length === 0 ? (
+                <div className="text-center text-white/90 py-8">You haven’t posted any reviews yet.</div>
               ) : (
                 <div>
                   <div className="space-y-7">
@@ -1011,7 +983,7 @@ const ProfilePage = () => {
                   {reviews.length > 5 && (
                     <div className="flex justify-center mt-6">
                       <button
-                        className="px-5 py-2 rounded-lg bg-purple-100 text-purple-700 font-bold hover:bg-purple-200 shadow transition"
+                        className="px-5 py-2 rounded-lg bg-white/15 text-white font-bold hover:bg-white/25 shadow transition"
                         onClick={() => setShowAllReviews((prev) => !prev)}
                       >
                         {showAllReviews ? "Show Less" : "Load More Reviews"}
@@ -1025,33 +997,112 @@ const ProfilePage = () => {
 
           {activeTab === "Analytics" && (
             <div>
-              <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-black">
-                <BarChart2 className="w-5 h-5 text-cyan-600" /> Activities
+              <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-white">
+                <BarChart2 className="w-5 h-5" /> Activity
               </h2>
 
-              {/* Summary stats */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="rounded-xl p-3 bg-white/70 border shadow-sm flex items-center gap-3">
-                  <Star className="w-5 h-5 text-amber-500" />
-                  <div>
-                    <div className="text-xs text-gray-500">Reviews Given</div>
-                    <div className="text-lg font-bold text-gray-900">{totalReviews}</div>
+              {/* Points Breakdown */}
+              <div className="grid grid-cols-1 gap-3 mb-6">
+                <div className="rounded-xl p-3 bg-white/90 backdrop-blur border shadow-sm overflow-hidden box-border">
+                  <div className="text-sm text-gray-800 font-semibold mb-2">Points Breakdown</div>
+
+                  <div className="text-gray-900 text-sm mb-2">
+                    <div>
+                      Total Points: <span className="font-bold">{points}</span>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-0.5">
+                      (10 points per review, 20 points per successful referral)
+                    </div>
                   </div>
-                </div>
-                <div className="rounded-xl p-3 bg-white/70 border shadow-sm flex items-center gap-3">
-                  <BarChart2 className="w-5 h-5 text-cyan-600" />
-                  <div>
-                    <div className="text-xs text-gray-500">Average Score</div>
-                    <div className="text-lg font-bold text-gray-900">{averageScore} / 5</div>
+
+                  {/* Reviews accordion */}
+                  <button
+                    onClick={() => setOpenReviewsPB((o) => !o)}
+                    className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-3 bg-amber-50 hover:bg-amber-100 transition border border-amber-200"
+                  >
+                    <span className="text-sm font-semibold text-amber-900 min-w-0 truncate">
+                      From Reviews ({totalReviews})
+                    </span>
+                    <span className="text-sm font-bold text-amber-900 shrink-0">+{pointsFromReviews}</span>
+                    {openReviewsPB ? (
+                      <ChevronUp className="w-4 h-4 text-amber-900 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-amber-900 shrink-0" />
+                    )}
+                  </button>
+
+                  {openReviewsPB && reviewBreakdownItems.length > 0 && (
+                    <ul className="mt-2 grid gap-1.5">
+                      {reviewBreakdownItems.map((it, i) => (
+                        <li
+                          key={`rev-${i}`}
+                          className="text-xs flex items-center justify-between gap-2 bg-white hover:bg-white rounded-md px-3 py-2 border transition min-w-0"
+                          style={{ borderColor: "rgba(0,0,0,0.08)" }}
+                        >
+                          <span className="truncate min-w-0">
+                            {it.label} {it.when ? <span className="text-gray-500">({it.when})</span> : null}
+                          </span>
+                          <span className="font-semibold ml-2 shrink-0">+10</span>
+                        </li>
+                      ))}
+                      {totalReviews > reviewBreakdownItems.length && (
+                        <li className="text-xs text-gray-500 px-1 py-1">
+                          + {totalReviews - reviewBreakdownItems.length} more…
+                        </li>
+                      )}
+                    </ul>
+                  )}
+
+                  {/* Referrals accordion */}
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setOpenRefPB((o) => !o)}
+                      className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-3 bg-emerald-50 hover:bg-emerald-100 transition border border-emerald-200"
+                    >
+                      <span className="text-sm font-semibold text-emerald-900 min-w-0 truncate">
+                        From Referrals ({referralCount})
+                      </span>
+                      <span className="text-sm font-bold text-emerald-900 shrink-0">+{pointsFromReferrals}</span>
+                      {openRefPB ? (
+                        <ChevronUp className="w-4 h-4 text-emerald-900 shrink-0" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-emerald-900 shrink-0" />
+                      )}
+                    </button>
+
+                    {openRefPB && (
+                      <>
+                        {referralBreakdownItems.length > 0 ? (
+                          <ul className="mt-2 grid gap-1.5">
+                            {referralBreakdownItems.map((it, i) => (
+                              <li
+                                key={`ref-${i}`}
+                                className="text-xs flex items-center justify-between gap-2 bg-white hover:bg-white rounded-md px-3 py-2 border transition min-w-0"
+                                style={{ borderColor: "rgba(0,0,0,0.08)" }}
+                              >
+                                <span className="truncate min-w-0">
+                                  {it.label} {it.when ? <span className="text-gray-500">({it.when})</span> : null}
+                                </span>
+                                <span className="font-semibold ml-2 shrink-0">+20</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="text-xs text-gray-500 mt-2">No referral points yet.</div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Recent Referrals */}
-              <h3 className="text-base font-semibold text-gray-800 mb-3">Your Referrals</h3>
+              {/* Username’s Referrals (possessive) */}
+              <h3 className="text-base font-semibold text-white mb-3">
+                {user?.name ? `${possessive(user.name)} Referrals` : "Referrals"}
+              </h3>
               <div className="space-y-3 mb-4">
                 {referralsUI.length === 0 ? (
-                  <div className="text-gray-400">You haven’t referred anyone yet.</div>
+                  <div className="text-white/80">No referrals yet.</div>
                 ) : (
                   (showAllReferrals ? referralsUI : referralsUI.slice(0, 5)).map((r) => (
                     <ReferralCard key={r.id} referral={r} />
@@ -1061,7 +1112,7 @@ const ProfilePage = () => {
               {referralsUI.length > 5 && (
                 <div className="flex justify-center mb-8">
                   <button
-                    className="px-5 py-2 rounded-lg bg-purple-100 text-purple-700 font-bold hover:bg-purple-200 shadow transition"
+                    className="px-5 py-2 rounded-lg bg-white/15 text-white font-bold hover:bg-white/25 shadow transition"
                     onClick={() => setShowAllReferrals((v) => !v)}
                   >
                     {showAllReferrals ? "Show Less" : "Load More Referrals"}
@@ -1069,23 +1120,27 @@ const ProfilePage = () => {
                 </div>
               )}
 
-              {/* Badge Goals (locked / progress) */}
+              {/* Badge Goals */}
               <div className="mb-2">
-                <div className="font-semibold text-gray-700 mb-2">Badge Goals</div>
+                <div className="font-semibold text-white mb-2">Badge Goals</div>
                 {lockedAchievements.length === 0 ? (
-                  <div className="text-gray-500 text-sm">
-                    You’ve unlocked all available badges. 🙌
-                  </div>
+                  <div className="text-white/80 text-sm">You’ve unlocked all available badges. 🙌</div>
                 ) : (
                   <TooltipProvider>
                     <div
                       className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"
-                      style={{
-                        gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
-                      }}
+                      style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))` }}
                     >
                       {lockedAchievements.map((a) => (
-                        <BadgeTile key={a.id} badge={a} locked showProgress size={badgeMin} />
+                        <BadgeTile
+                          key={a.id}
+                          badge={a}
+                          locked
+                          showProgress
+                          size={badgeMin}
+                          textClass="text-white"
+                          progressTextClass="text-white/90"
+                        />
                       ))}
                     </div>
                   </TooltipProvider>
@@ -1096,6 +1151,7 @@ const ProfilePage = () => {
         </div>
       </div>
 
+      {/* Styles */}
       <style>{`
         body { background: #6D46C6 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
 
@@ -1112,7 +1168,6 @@ const ProfilePage = () => {
           .xs\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
-        /* Referral card look */
         .bg-gradient-card { background: linear-gradient(180deg, #ffffff, #faf7ff); }
         .shadow-card { box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
         .shadow-soft { box-shadow: 0 10px 28px rgba(0,0,0,0.10); }
