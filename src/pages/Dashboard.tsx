@@ -8,7 +8,6 @@ import {
   MapPin,
   ArrowLeft,
   Share2,
-  BarChart2,
   Lock,
   ChevronDown,
   ChevronUp,
@@ -30,14 +29,51 @@ const API_KEY =
 const BASE_ID = "appFUJWWTaoJ3YiWt";
 const REVIEWS_TABLE = "tblef0n1hQXiKPHxI";
 
-/* ===================== Utilities ===================== */
+/* ===================== Sticky Logo Navbar (same as Profile) ===================== */
+function StickyLogoNavbar() {
+  const [isScrolled, setIsScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-[#6214a8]/95 backdrop-blur-sm shadow-md py-2"
+          : "bg-transparent py-4"
+      }`}
+    >
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center">
+          <Link to="/" className="flex items-center">
+            <img
+              alt="Uplaud Logo"
+              className="h-10 w-auto object-fill"
+              src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
+            />
+          </Link>
+          <div className="w-10 h-10" />
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+/* ===================== Utilities (mirrored from Profile) ===================== */
 function slugify(name = "") {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
 }
 function formatDate(date?: Date | string | null) {
   if (!date) return "";
   const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleDateString(undefined, { month: "long", day: "2-digit", year: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    month: "long",
+    day: "2-digit",
+    year: "numeric",
+  });
 }
 function emojiForScore(score?: number) {
   if (!score) return "🤍";
@@ -59,7 +95,7 @@ function getWhatsAppShareLink(user?: any) {
   return `https://wa.me/?text=${encodeURIComponent(msg)}`;
 }
 
-/* ===================== Badges ===================== */
+/* ===================== Badges (same structure as Profile) ===================== */
 const BADGES = [
   {
     key: "fresh_voice",
@@ -89,7 +125,9 @@ const BADGES = [
     description: "Submit reviews in 5+ different categories",
     image: "Vibe_Curator.png",
     progress: (user: any) => {
-      const catCount = new Set(user.reviews.map((r: any) => (r.category || "").toLowerCase())).size;
+      const catCount = new Set(
+        user.reviews.map((r: any) => (r.category || "").toLowerCase())
+      ).size;
       return { current: Math.min(catCount, 5), total: 5, isEarned: catCount >= 5 };
     },
   },
@@ -137,7 +175,8 @@ const BADGES = [
         ...new Set(
           user.reviews
             .map((r: any) => {
-              const d = r.date instanceof Date ? r.date : r.date ? new Date(r.date) : null;
+              const d =
+                r.date instanceof Date ? r.date : r.date ? new Date(r.date) : null;
               return d && !isNaN(d.getTime()) ? d.toDateString() : null;
             })
             .filter(Boolean)
@@ -172,7 +211,10 @@ const BADGES = [
       for (let i = 0; i <= refDates.length - 10; i++) {
         const start = refDates[i] as any;
         const end = refDates[i + 9] as any;
-        if (end - start <= 7 * 24 * 3600 * 1000) { earned = true; break; }
+        if (end - start <= 7 * 24 * 3600 * 1000) {
+          earned = true;
+          break;
+        }
       }
       return { current: Math.min(refs.length, 10), total: 10, isEarned: earned };
     },
@@ -183,10 +225,22 @@ const getGenderFolder = (gender?: string) =>
 
 function getAchievements(user: any, reviews: any[], referralCount: number, myReferrals: any[]) {
   const gender = getGenderFolder(user?.gender || user?.Gender);
-  const userObj = { ...user, reviews: reviews || [], referralCount: referralCount || 0, myReferrals: myReferrals || [] };
+  const userObj = {
+    ...user,
+    reviews: reviews || [],
+    referralCount: referralCount || 0,
+    myReferrals: myReferrals || [],
+  };
   return BADGES.map((badge) => {
     const p = badge.progress(userObj);
-    return { id: badge.key, name: badge.label, description: badge.description, image: `/badges/${gender}/${badge.image}`, isEarned: p.isEarned, progress: p };
+    return {
+      id: badge.key,
+      name: badge.label,
+      description: badge.description,
+      image: `/badges/${gender}/${badge.image}`,
+      isEarned: p.isEarned,
+      progress: p,
+    };
   });
 }
 
@@ -208,7 +262,7 @@ function useIsTouch() {
   return isTouch;
 }
 
-/* ===================== Colored stat pills ===================== */
+/* ===================== Colored stat pills (same as Profile) ===================== */
 const ColoredStatsTabs = ({ totalReviews, points, referralCount }: any) => {
   const Pill = ({ bg, ring, icon, label, value }: any) => (
     <div
@@ -217,19 +271,40 @@ const ColoredStatsTabs = ({ totalReviews, points, referralCount }: any) => {
     >
       {icon}
       <span className="text-base sm:text-lg font-extrabold tabular-nums">{value}</span>
-      <span className="text-[12px] sm:text-[13px] font-semibold whitespace-nowrap">{label}</span>
+      <span className="text-[12px] sm:text-[13px] font-semibold whitespace-nowrap">
+        {label}
+      </span>
     </div>
   );
+
   return (
     <div className="grid grid-cols-3 gap-2 sm:gap-3">
-      <Pill bg="bg-amber-50 text-amber-800" ring="ring-1 ring-amber-200" icon={<Star className="w-3 h-3" />} label="Reviews" value={totalReviews} />
-      <Pill bg="bg-violet-50 text-violet-800" ring="ring-1 ring-violet-200" icon={<Zap className="w-3 h-3" />} label="Points" value={points} />
-      <Pill bg="bg-rose-50 text-rose-800" ring="ring-1 ring-rose-200" icon={<ClipboardList className="w-3 h-3" />} label="Referrals" value={referralCount} />
+      <Pill
+        bg="bg-amber-50 text-amber-800"
+        ring="ring-1 ring-amber-200"
+        icon={<Star className="w-3 h-3" />}
+        label="Reviews"
+        value={totalReviews}
+      />
+      <Pill
+        bg="bg-violet-50 text-violet-800"
+        ring="ring-1 ring-violet-200"
+        icon={<Zap className="w-3 h-3" />}
+        label="Points"
+        value={points}
+      />
+      <Pill
+        bg="bg-rose-50 text-rose-800"
+        ring="ring-1 ring-rose-200"
+        icon={<ClipboardList className="w-3 h-3" />}
+        label="Referrals"
+        value={referralCount}
+      />
     </div>
   );
 };
 
-/* ===================== Badge tile ===================== */
+/* ===================== Badge tile (same behaviors) ===================== */
 function BadgeTile({
   badge,
   locked = false,
@@ -238,7 +313,13 @@ function BadgeTile({
   textClass,
   progressTextClass,
 }: {
-  badge: { id: string; name: string; description: string; image: string; progress?: { current: number; total: number } };
+  badge: {
+    id: string;
+    name: string;
+    description: string;
+    image: string;
+    progress?: { current: number; total: number };
+  };
   locked?: boolean;
   showProgress?: boolean;
   size?: number;
@@ -248,7 +329,6 @@ function BadgeTile({
   const isTouch = useIsTouch();
   const [open, setOpen] = useState(false);
 
-  const isStreak = badge.id === "streak_star";
   const nameColor = textClass || (locked ? "text-gray-800" : "text-white");
   const pct =
     badge.progress && badge.progress.total > 0
@@ -262,7 +342,12 @@ function BadgeTile({
       onClick={() => isTouch && setOpen((o) => !o)}
     >
       <div className="relative rounded-xl overflow-hidden" style={{ width: size, height: size }}>
-        <img src={badge.image} alt={badge.name} className="w-full h-full object-contain" style={{ background: "transparent" }} />
+        <img
+          src={badge.image}
+          alt={badge.name}
+          className="w-full h-full object-contain"
+          style={{ background: "transparent" }}
+        />
         {locked && (
           <div className="absolute inset-0 flex items-center justify-center">
             <Lock className="w-5 h-5 text-white/90 drop-shadow" />
@@ -274,10 +359,10 @@ function BadgeTile({
 
       {showProgress && badge.progress && (
         <div className="mt-1">
-          <div className={`w-full rounded-full h-1 ${isStreak ? "bg-white/30" : "bg-white/30"}`}>
-            <div className={`bg-purple-600 h-1 rounded-full`} style={{ width: `${pct}%` }} />
+          <div className="w-full rounded-full h-1 bg-white/30">
+            <div className="bg-purple-600 h-1 rounded-full" style={{ width: `${pct}%` }} />
           </div>
-          <p className={`${progressTextClass || (isStreak ? "text-purple-100 font-semibold" : "text-white/90")} text-[10px] mt-1`}>
+          <p className={`${progressTextClass || "text-white/90"} text-[10px] mt-1`}>
             {badge.progress.current}/{badge.progress.total}
           </p>
         </div>
@@ -298,7 +383,11 @@ function BadgeTile({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{inner}</TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-xs border" style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}>
+      <TooltipContent
+        side="bottom"
+        className="max-w-xs border"
+        style={{ background: "#fff", color: "#23223b", borderColor: "#b39ddb", fontSize: 13 }}
+      >
         <div className="text-center">
           <p className="font-semibold">{badge.name}</p>
           <p className="text-xs opacity-90 mt-1">{badge.description}</p>
@@ -308,7 +397,7 @@ function BadgeTile({
   );
 }
 
-/* ========= REVIEW CARD ========= */
+/* ========= REVIEW CARD (copied look from Profile) ========= */
 const ReviewCardLocal = ({ review }: any) => {
   if (!review.businessName || !review.uplaud) return null;
 
@@ -320,17 +409,21 @@ const ReviewCardLocal = ({ review }: any) => {
       `${window.location.origin}/business/${slugify(business)}`;
 
     const text =
-      `Hey,check out this Real Review for ${business} on Uplaud. ` +
+      `Hey, check out this Real Review for ${business} on Uplaud. ` +
       `It’s a platform where real people give honest reviews on WhatsApp:\n` +
       `${link}`;
 
     const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(wa, "_blank");
+    window.location.href = wa; // WhatsApp only, transparent button
   };
 
   return (
-    <div className="flex flex-col rounded-2xl shadow transition hover:shadow-xl overflow-hidden" style={{ background: "#FFF7E6" }}>
+    <div
+      className="flex flex-col rounded-2xl shadow transition hover:shadow-xl overflow-hidden"
+      style={{ background: "#FFF7E6" }}
+    >
       <div className="w-full px-5 pt-5">
+        {/* Title row */}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Link
             to={`/business/${slugify(review.businessName)}`}
@@ -341,13 +434,18 @@ const ReviewCardLocal = ({ review }: any) => {
             {review.businessName}
           </Link>
 
-          <div className="flex items-center gap-3 sm:ml-auto self-end">
+        {/* Desktop meta (transparent share) */}
+          <div className="hidden sm:flex items-center gap-3 sm:ml-auto">
             {review.score ? (
               <span className="flex items-center leading-none">
                 {Array.from({ length: review.score }).map((_, i) => (
-                  <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">★</span>
+                  <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">
+                    ★
+                  </span>
                 ))}
-                <span className="ml-1 text-lg sm:text-2xl leading-none">{emojiForScore(review.score)}</span>
+                <span className="ml-1 text-lg sm:text-2xl leading-none">
+                  {emojiForScore(review.score)}
+                </span>
               </span>
             ) : null}
 
@@ -357,18 +455,50 @@ const ReviewCardLocal = ({ review }: any) => {
 
             <button
               onClick={handleShareToWhatsAppOnly}
-              className="inline-flex items-center justify-center rounded-md border border-black/10 bg-white/90 p-2 shadow hover:bg-white"
-              aria-label="Share this review"
+              className="inline-flex items-center justify-center rounded-md p-2 bg-transparent hover:bg-transparent focus:bg-transparent border-0 shadow-none"
+              aria-label="Share this review on WhatsApp"
               title="Share on WhatsApp"
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 className="w-4 h-4 text-gray-700" />
             </button>
           </div>
         </div>
+
+        {/* Mobile meta (transparent share) */}
+        <div className="sm:hidden mt-1 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {review.score ? (
+              <span className="flex items-center leading-none">
+                {Array.from({ length: review.score }).map((_, i) => (
+                  <span key={i} className="text-yellow-400 text-sm leading-none">
+                    ★
+                  </span>
+                ))}
+                <span className="ml-1 text-xl leading-none">{emojiForScore(review.score)}</span>
+              </span>
+            ) : null}
+            <span className="text-gray-600 text-xs font-medium leading-none">
+              {formatDate(review.date)}
+            </span>
+          </div>
+
+          <button
+            onClick={handleShareToWhatsAppOnly}
+            className="inline-flex items-center justify-center rounded-md p-2 bg-transparent hover:bg-transparent focus:bg-transparent border-0 shadow-none"
+            aria-label="Share this review on WhatsApp"
+            title="Share on WhatsApp"
+          >
+            <Share2 className="w-4 h-4 text-gray-700" />
+          </button>
+        </div>
       </div>
 
+      {/* Review body */}
       <div className="mt-3 w-full">
-        <div className="w-full px-5 py-4 text-gray-900 text-base font-medium break-words" style={{ background: "#DCF8C6" }}>
+        <div
+          className="w-full px-5 py-4 text-gray-900 text-base font-medium break-words"
+          style={{ background: "#DCF8C6" }}
+        >
           <span style={{ display: "block", wordBreak: "break-word" }}>{review.uplaud}</span>
         </div>
       </div>
@@ -408,7 +538,9 @@ const Dashboard = () => {
         const url = `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}?filterByFormula=${encodeURIComponent(
           filterFormula
         )}`;
-        const { data } = await axios.get(url, { headers: { Authorization: `Bearer ${API_KEY}` } });
+        const { data } = await axios.get(url, {
+          headers: { Authorization: `Bearer ${API_KEY}` },
+        });
 
         const records = (data.records || [])
           .map((rec: any) => {
@@ -416,7 +548,10 @@ const Dashboard = () => {
             return {
               businessName: f.business_name || f.businessName,
               uplaud: f.Uplaud || f.uplaud,
-              score: typeof f["Uplaud Score"] === "number" ? f["Uplaud Score"] : Number(f.score || 0),
+              score:
+                typeof f["Uplaud Score"] === "number"
+                  ? f["Uplaud Score"]
+                  : Number(f.score || 0),
               category: f.Category || "Other",
               date: f.Date_Added ? new Date(f.Date_Added) : null,
               shareLink: f["Share Link"] || "",
@@ -433,7 +568,8 @@ const Dashboard = () => {
 
         setReviews(records);
 
-        let name: any = records[0]?.raw?.Name_Creator || records[0]?.raw?.Reviewer || "User";
+        let name: any =
+          records[0]?.raw?.Name_Creator || records[0]?.raw?.Reviewer || "User";
         if (Array.isArray(name)) name = name[0];
 
         const handle = slugify(name || "user");
@@ -444,7 +580,9 @@ const Dashboard = () => {
           handle,
           gender,
           image: records[0]?.raw?.["Creator Image"] || null,
-          location: [records[0]?.raw?.City, records[0]?.raw?.State].filter(Boolean).join(", "),
+          location: [records[0]?.raw?.City, records[0]?.raw?.State]
+            .filter(Boolean)
+            .join(", "),
           bio: records[0]?.raw?.Internal || "",
           autogenInvite: records[0]?.raw?.["Autogen Invite"] || "",
         });
@@ -466,33 +604,20 @@ const Dashboard = () => {
   const points = pointsFromReviews + pointsFromReferrals;
 
   const joinDate =
-    reviews.length > 0 && reviews[reviews.length - 1].date ? formatDate(reviews[reviews.length - 1].date) : "—";
+    reviews.length > 0 && reviews[reviews.length - 1].date
+      ? formatDate(reviews[reviews.length - 1].date)
+      : "—";
 
   // Achievements
   const achievements = getAchievements(user, reviews, referralCount, myReferrals);
   const earnedAchievements = achievements.filter((a: any) => a.isEarned);
   const lockedAchievements = achievements.filter((a: any) => !a.isEarned);
 
-  // Points breakdown (first 10)
+  // Points breakdown list (reviews only; referrals list removed)
   const reviewBreakdownItems = reviews.slice(0, 10).map((r) => ({
     label: `Review: ${r.businessName}`,
     when: r.date ? formatDate(r.date) : "",
   }));
-
-  const referralBreakdownItems =
-    (myReferrals && myReferrals.length
-      ? myReferrals.slice(0, 10).map((ref: any) => ({
-          label: `Successful referral${ref.name ? `: ${ref.name}` : ""}`,
-          when: ref.date ? formatDate(ref.date) : "",
-        }))
-      : referralCount > 0
-      ? [
-          {
-            label: `Successful referrals × ${referralCount}`,
-            when: "",
-          },
-        ]
-      : []) as Array<{ label: string; when?: string }>;
 
   const handleShareProfileToWhatsAppOnly = () => {
     const wa = getWhatsAppShareLink(user);
@@ -504,42 +629,78 @@ const Dashboard = () => {
 
   if (loading)
     return (
-      <div className="flex justify-center items-center h-80 text-lg text-white/90" style={{ background: "#6D46C6" }}>
-        Loading…
-      </div>
+      <>
+        <StickyLogoNavbar />
+        <div
+          className="flex justify-center items-center h-80 text-lg text-white pt-20"
+          style={{ background: "transparent" }}
+        >
+          Loading…
+        </div>
+      </>
     );
   if (!user)
     return (
-      <div className="min-h-screen flex items-center justify-center text-white" style={{ background: "#6D46C6" }}>
-        User not found. Please log in again.
-      </div>
+      <>
+        <StickyLogoNavbar />
+        <div
+          className="min-h-screen flex items-center justify-center text-white pt-20"
+          style={{ background: "transparent" }}
+        >
+          User not found. Please log in again.
+        </div>
+      </>
     );
 
   return (
     <div
       className="min-h-screen w-full font-sans text-gray-800 relative"
-      style={{ background: "#6D46C6", fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif` }}
+      style={{
+        background: "transparent", // page shows body color (#6214a8)
+        fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif`,
+      }}
     >
-      {/* Back Button */}
-      <button
-        onClick={() => navigate("/")}
-        className="fixed sm:absolute top-4 left-4 z-50 font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
-        style={{ minWidth: 44, minHeight: 44, background: "rgba(255,255,255,0.88)", color: "#6D46C6", backdropFilter: "blur(6px)" }}
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="hidden sm:inline">Back</span>
-      </button>
+      {/* Sticky logo navbar */}
+      <StickyLogoNavbar />
 
-      <div className="max-w-4xl mx-auto space-y-6 relative z-10 pt-16 sm:pt-0 px-2 sm:px-0">
-        {/* Header card */}
+      {/* Page content */}
+      <div className="max-w-4xl mx-auto space-y-6 relative z-10 px-2 sm:px-0 pt-24">
+        {/* Back button row */}
+        <div className="flex items-center justify-start">
+          <button
+            onClick={() => navigate("/")}
+            className="font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              background: "rgba(255,255,255,0.88)",
+              color: "#6214a8",
+              backdropFilter: "blur(6px)",
+            }}
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back</span>
+          </button>
+        </div>
+
+        {/* Header card (matches Profile) */}
         <div
-          className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-6"
-          style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.6)" }}
+          className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-2"
+          style={{
+            background: "rgba(255,255,255,0.75)",
+            backdropFilter: "blur(8px)",
+            borderColor: "rgba(255,255,255,0.6)",
+          }}
         >
           <div className="flex items-center gap-4">
             <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-purple-100 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-purple-700 select-none">
               {user?.image ? (
-                <img src={user.image} alt={user?.name || "User"} className="w-full h-full object-cover rounded-full" />
+                <img
+                  src={user.image}
+                  alt={user?.name || "User"}
+                  className="w-full h-full object-cover rounded-full"
+                />
               ) : (
                 user?.name?.split(" ").map((n: string) => n[0]).join("")
               )}
@@ -548,9 +709,13 @@ const Dashboard = () => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2 flex-wrap">
-                  <h2 className="font-extrabold text-xl sm:text-2xl truncate">{user?.name}</h2>
+                  <h2 className="font-extrabold text-xl sm:text-2xl truncate">
+                    {user?.name}
+                  </h2>
                   {user?.handle && (
-                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">@{user.handle}</span>
+                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">
+                      @{user.handle}
+                    </span>
                   )}
                 </div>
 
@@ -588,20 +753,35 @@ const Dashboard = () => {
           </div>
 
           {/* Stats */}
-          <ColoredStatsTabs totalReviews={totalReviews} points={points} referralCount={referralCount} />
+          <ColoredStatsTabs
+            totalReviews={totalReviews}
+            points={points}
+            referralCount={referralCount}
+          />
         </div>
 
-        {/* Earned badges (no trophy header) */}
+        {/* Earned badges */}
         <Card
           className="w-full backdrop-blur-md"
-          style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.35)", boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}
+          style={{
+            background: "rgba(255,255,255,0.16)",
+            border: "1px solid rgba(255,255,255,0.35)",
+            boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+          }}
         >
           <div className="px-3 pb-3 pt-3">
             {earnedAchievements.length === 0 ? (
-              <div className="text-center text-white/90 py-1 text-sm">No badges yet — start reviewing to earn your first badge!</div>
+              <div className="text-center text-white/90 py-1 text-sm">
+                No badges yet — start reviewing to earn your first badge!
+              </div>
             ) : (
               <TooltipProvider>
-                <div className="gap-3 grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))` }}>
+                <div
+                  className="gap-3 grid"
+                  style={{
+                    gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
+                  }}
+                >
                   {earnedAchievements.map((a: any) => (
                     <BadgeTile key={a.id} badge={a} size={badgeMin} />
                   ))}
@@ -611,17 +791,28 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        {/* Tabs container — transparent */}
-        <div className="rounded-2xl p-4" style={{ background: "transparent", borderColor: "transparent" }}>
+        {/* Tabs (Reviews / Activity) — same layout; no inner "Activity" header */}
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: "transparent", borderColor: "transparent" }}
+        >
           <div className="flex gap-6 mb-6 text-base font-semibold border-b border-white/30">
             <button
-              className={`pb-2 -mb-[2px] px-1 transition ${activeTab === "Reviews" ? "text-white border-b-2 border-white" : "text-white/80 hover:text-white"}`}
+              className={`pb-2 -mb-[2px] px-1 transition ${
+                activeTab === "Reviews"
+                  ? "text-white border-b-2 border-white"
+                  : "text-white/80 hover:text-white"
+              }`}
               onClick={() => setActiveTab("Reviews")}
             >
               Reviews
             </button>
             <button
-              className={`pb-2 -mb-[2px] px-1 transition ${activeTab === "Analytics" ? "text-white border-b-2 border-white" : "text-white/80 hover:text-white"}`}
+              className={`pb-2 -mb-[2px] px-1 transition ${
+                activeTab === "Analytics"
+                  ? "text-white border-b-2 border-white"
+                  : "text-white/80 hover:text-white"
+              }`}
               onClick={() => setActiveTab("Analytics")}
             >
               Activity
@@ -631,13 +822,17 @@ const Dashboard = () => {
           {activeTab === "Reviews" && (
             <div>
               {reviews.length === 0 ? (
-                <div className="text-center text-white/90 py-8">You haven’t posted any reviews yet.</div>
+                <div className="text-center text-white/90 py-8">
+                  You haven’t posted any reviews yet.
+                </div>
               ) : (
                 <div>
                   <div className="space-y-7">
-                    {(showAllReviews ? reviews : reviews.slice(0, 5)).map((review, idx) => (
-                      <ReviewCardLocal key={idx} review={review} />
-                    ))}
+                    {(showAllReviews ? reviews : reviews.slice(0, 5)).map(
+                      (review, idx) => (
+                        <ReviewCardLocal key={idx} review={review} />
+                      )
+                    )}
                   </div>
                   {reviews.length > 5 && (
                     <div className="flex justify-center mt-6">
@@ -656,21 +851,19 @@ const Dashboard = () => {
 
           {activeTab === "Analytics" && (
             <div>
-              <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-white">
-                <BarChart2 className="w-5 h-5" /> Activity
-              </h2>
-
-              {/* Points Breakdown — mobile-safe */}
+              {/* Points Breakdown (no extra 'Activity' header, no referrals list) */}
               <div className="grid grid-cols-1 gap-3 mb-4">
                 <div className="rounded-xl p-3 bg-white/90 backdrop-blur border shadow-sm overflow-hidden box-border">
-                  <div className="text-sm text-gray-800 font-semibold mb-2">Points Breakdown</div>
-
                   <div className="text-gray-900 text-sm mb-2">
-                    <div>Total Points: <span className="font-bold">{points}</span></div>
-                    <div className="text-xs text-gray-600 mt-0.5">(10 points per review, 20 points per successful referral)</div>
+                    <div>
+                      Total Points: <span className="font-bold">{points}</span>
+                    </div>
+                    <div className="text-xs text-gray-600 mt-0.5">
+                      (10 points per review, 20 points per successful referral)
+                    </div>
                   </div>
 
-                  {/* Reviews accordion */}
+                  {/* Reviews accordion and list */}
                   <button
                     onClick={() => setOpenReviewsPB((o) => !o)}
                     className="w-full flex items-center justify-between gap-2 rounded-lg px-3 py-3 bg-amber-50 hover:bg-amber-100 transition border border-amber-200"
@@ -678,7 +871,9 @@ const Dashboard = () => {
                     <span className="text-sm font-semibold text-amber-900 min-w-0 truncate">
                       From Reviews ({totalReviews})
                     </span>
-                    <span className="text-sm font-bold text-amber-900 shrink-0">+{pointsFromReviews}</span>
+                    <span className="text-sm font-bold text-amber-900 shrink-0">
+                      +{pointsFromReviews}
+                    </span>
                     {openReviewsPB ? (
                       <ChevronUp className="w-4 h-4 text-amber-900 shrink-0" />
                     ) : (
@@ -695,18 +890,23 @@ const Dashboard = () => {
                           style={{ borderColor: "rgba(0,0,0,0.08)" }}
                         >
                           <span className="truncate min-w-0">
-                            {it.label} {it.when ? <span className="text-gray-500">({it.when})</span> : null}
+                            {it.label}{" "}
+                            {it.when ? (
+                              <span className="text-gray-500">({it.when})</span>
+                            ) : null}
                           </span>
                           <span className="font-semibold ml-2 shrink-0">+10</span>
                         </li>
                       ))}
                       {totalReviews > reviewBreakdownItems.length && (
-                        <li className="text-xs text-gray-500 px-1 py-1">+ {totalReviews - reviewBreakdownItems.length} more…</li>
+                        <li className="text-xs text-gray-500 px-1 py-1">
+                          + {totalReviews - reviewBreakdownItems.length} more…
+                        </li>
                       )}
                     </ul>
                   )}
 
-                  {/* Referrals accordion */}
+                  {/* Referrals accordion (no inner list; just totals) */}
                   <div className="mt-3">
                     <button
                       onClick={() => setOpenRefPB((o) => !o)}
@@ -715,50 +915,34 @@ const Dashboard = () => {
                       <span className="text-sm font-semibold text-emerald-900 min-w-0 truncate">
                         From Referrals ({referralCount})
                       </span>
-                      <span className="text-sm font-bold text-emerald-900 shrink-0">+{pointsFromReferrals}</span>
+                      <span className="text-sm font-bold text-emerald-900 shrink-0">
+                        +{pointsFromReferrals}
+                      </span>
                       {openRefPB ? (
                         <ChevronUp className="w-4 h-4 text-emerald-900 shrink-0" />
                       ) : (
                         <ChevronDown className="w-4 h-4 text-emerald-900 shrink-0" />
                       )}
                     </button>
-
-                    {openRefPB && (
-                      <>
-                        {referralBreakdownItems.length > 0 ? (
-                          <ul className="mt-2 grid gap-1.5">
-                            {referralBreakdownItems.map((it, i) => (
-                              <li
-                                key={`ref-${i}`}
-                                className="text-xs flex items-center justify-between gap-2 bg-white hover:bg-white rounded-md px-3 py-2 border transition min-w-0"
-                                style={{ borderColor: "rgba(0,0,0,0.08)" }}
-                              >
-                                <span className="truncate min-w-0">
-                                  {it.label} {it.when ? <span className="text-gray-500">({it.when})</span> : null}
-                                </span>
-                                <span className="font-semibold ml-2 shrink-0">+20</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="text-xs text-gray-500 mt-2">No referral points yet.</div>
-                        )}
-                      </>
-                    )}
+                    {/* Intentionally no details/list below per request */}
                   </div>
                 </div>
               </div>
 
-              {/* Badge Goals — make all text white on purple */}
+              {/* Badge Goals */}
               <div className="mb-2">
                 <div className="font-semibold text-white mb-2">Badge Goals</div>
                 {lockedAchievements.length === 0 ? (
-                  <div className="text-white/80 text-sm">You’ve unlocked all available badges. 🙌</div>
+                  <div className="text-white/80 text-sm">
+                    You’ve unlocked all available badges. 🙌
+                  </div>
                 ) : (
                   <TooltipProvider>
                     <div
                       className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"
-                      style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))` }}
+                      style={{
+                        gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
+                      }}
                     >
                       {lockedAchievements.map((a: any) => (
                         <BadgeTile
@@ -782,23 +966,25 @@ const Dashboard = () => {
 
       {/* Styles */}
       <style>{`
-        body { background: #6D46C6 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
+        /* Solid purple background across the whole app to match Profile */
+        body { background: #6214a8 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
 
         .business-hover-underline { transition: color 0.2s; position: relative; }
-        .business-hover-underline:hover, .business-hover-underline:focus { color: #6D46C6 !important; }
+        .business-hover-underline:hover, .business-hover-underline:focus { color: #6214a8 !important; }
         .business-hover-underline::after {
           content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
-          background: #6D46C6; border-radius: 1px; opacity: 0; transform: scaleX(0.7);
+          background: #6214a8; border-radius: 1px; opacity: 0; transform: scaleX(0.7);
           transition: opacity 0.18s, transform 0.2s;
         }
         .business-hover-underline:hover::after, .business-hover-underline:focus::after { opacity: 1; transform: scaleX(1); }
 
-        /* Mobile tweaks to prevent overflow */
-        @media (max-width: 640px) {
-          .tab-button { min-height: 44px; }
+        @media (max-width: 400px) {
+          .xs\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
-        @media (max-width: 400px) { .xs\\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        .bg-gradient-card { background: linear-gradient(180deg, #ffffff, #faf7ff); }
+        .shadow-card { box-shadow: 0 6px 20px rgba(0,0,0,0.06); }
+        .shadow-soft { box-shadow: 0 10px 28px rgba(0,0,0,0.10); }
       `}</style>
     </div>
   );

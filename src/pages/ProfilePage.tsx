@@ -6,13 +6,12 @@ import {
   Zap,
   Calendar,
   MapPin,
-  ArrowLeft,
   Share2,
-  BarChart2,
   Lock,
   User,
   ChevronDown,
   ChevronUp,
+  ArrowLeft,
 } from "lucide-react";
 import axios from "axios";
 import { Card } from "@/components/ui/card";
@@ -31,6 +30,39 @@ const BASE_ID = "appFUJWWTaoJ3YiWt";
 const USERS_TABLE = "tblWIFgwTz3Gn3idV";
 const REVIEWS_TABLE = "tblef0n1hQXiKPHxI";
 const CIRCLES_TABLE = "tbldL8H5T4qYKUzLV";
+
+/* ===================== Sticky Logo Navbar ===================== */
+function StickyLogoNavbar() {
+  const [isScrolled, setIsScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-[#6214a8]/95 backdrop-blur-sm shadow-md py-2"
+          : "bg-transparent py-4"
+      }`}
+    >
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center">
+          <Link to="/" className="flex items-center">
+            <img
+              alt="Uplaud Logo"
+              className="h-10 w-auto object-fill"
+              src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
+            />
+          </Link>
+          <div className="w-10 h-10" />
+        </div>
+      </div>
+    </nav>
+  );
+}
 
 /* ===================== Badges ===================== */
 const BADGES = [
@@ -359,7 +391,7 @@ const ColoredStatsTabs = ({
   );
 };
 
-/* ===== Badge tile (desktop hover tooltip, mobile tap pop-out) ===== */
+/* ===== Badge tile ===== */
 function BadgeTile({
   badge,
   locked = false,
@@ -451,12 +483,12 @@ function BadgeTile({
   );
 }
 
-/* ===== Referral Card (shows date) ===== */
+/* ===== Referral Card ===== */
 export interface ReferralData {
   id: string;
   referredPersonName: string;
   businessName: string;
-  date: string;        // formatted date
+  date: string;
   timeAgo: string;
   status: "clicked" | "reviewed";
   avatarUrl?: string;
@@ -659,7 +691,7 @@ const ProfilePage = () => {
           setReviews([]);
         }
 
-        // Referrals (dedupe receiver||business)
+        // Referrals
         let unique = new Map<
           string,
           { receiver: string; business: string; status: "clicked" | "reviewed"; date: Date | null }
@@ -739,7 +771,7 @@ const ProfilePage = () => {
     if (id) fetchUserAndReviews();
   }, [id, navigate]);
 
-  // Stats & breakdown like Dashboard
+  // Stats
   const pointsPerReview = 10;
   const pointsPerReferral = 20;
   const totalReviews = reviews.length;
@@ -757,20 +789,11 @@ const ProfilePage = () => {
   const earnedAchievements = achievements.filter((a) => a.isEarned);
   const lockedAchievements = achievements.filter((a) => !a.isEarned);
 
-  // Breakdown items (first 10)
+  // Points breakdown – reviews only (no referral inner list)
   const reviewBreakdownItems = reviews.slice(0, 10).map((r) => ({
     label: `Review: ${r.businessName}`,
     when: r.date ? formatDate(r.date) : "",
   }));
-  const referralBreakdownItems =
-    (myReferrals && myReferrals.length
-      ? myReferrals.slice(0, 10).map((ref: any) => ({
-          label: `Successful referral${ref.name ? `: ${ref.name}` : ""}`,
-          when: ref.date ? formatDate(ref.date) : "",
-        }))
-      : referralCount > 0
-      ? [{ label: `Successful referrals × ${referralCount}`, when: "" }]
-      : []) as Array<{ label: string; when?: string }>;
 
   const handleShareProfileToWhatsAppOnly = () => {
     if (!user) return;
@@ -786,7 +809,6 @@ const ProfilePage = () => {
   function ReviewCardLocal({ review }: { review: any }) {
     if (!review.businessName || !review.uplaud) return null;
 
-    // OPEN WHATSAPP ONLY + use ReferralLink from Uplaud table
     const handleShare = () => {
       const link =
         review.referralLink ||
@@ -795,14 +817,16 @@ const ProfilePage = () => {
 
       const message = `Hey, check out this Real Review for ${review.businessName} on Uplaud. It’s a platform where real people give honest reviews on WhatsApp:\n${link}`;
       const wa = `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-      // Redirect specifically to WhatsApp
-      window.location.href = wa;
+      window.location.href = wa; // WhatsApp only
     };
 
     return (
-      <div className="flex flex-col rounded-2xl shadow transition hover:shadow-xl overflow-hidden" style={{ background: "#FFF7E6" }}>
+      <div
+        className="flex flex-col rounded-2xl shadow transition hover:shadow-xl overflow-hidden"
+        style={{ background: "#FFF7E6" }}
+      >
         <div className="w-full px-5 pt-5">
+          {/* Title row */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Link
               to={`/business/${slugify(review.businessName)}`}
@@ -813,11 +837,14 @@ const ProfilePage = () => {
               {review.businessName}
             </Link>
 
-            <div className="flex items-center gap-3 sm:ml-auto self-end">
+            {/* Desktop meta */}
+            <div className="hidden sm:flex items-center gap-3 sm:ml-auto">
               {review.score ? (
                 <span className="flex items-center leading-none">
                   {Array.from({ length: review.score }).map((_, i) => (
-                    <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">★</span>
+                    <span key={i} className="text-yellow-400 text-sm sm:text-lg leading-none">
+                      ★
+                    </span>
                   ))}
                   <span className="ml-1 text-lg sm:text-2xl leading-none">
                     {emojiForScore(review.score)}
@@ -831,18 +858,50 @@ const ProfilePage = () => {
 
               <button
                 onClick={handleShare}
-                className="inline-flex items-center justify-center rounded-md border border-black/10 bg-white/90 p-2 shadow hover:bg-white"
+                className="inline-flex items-center justify-center rounded-md p-2 bg-transparent hover:bg-transparent focus:bg-transparent border-0 shadow-none"
                 aria-label="Share this review on WhatsApp"
                 title="Share on WhatsApp"
               >
-                <Share2 className="w-4 h-4" />
+                <Share2 className="w-4 h-4 text-gray-700" />
               </button>
             </div>
           </div>
+
+          {/* Mobile meta */}
+          <div className="sm:hidden mt-1 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {review.score ? (
+                <span className="flex items-center leading-none">
+                  {Array.from({ length: review.score }).map((_, i) => (
+                    <span key={i} className="text-yellow-400 text-sm leading-none">
+                      ★
+                    </span>
+                  ))}
+                  <span className="ml-1 text-xl leading-none">{emojiForScore(review.score)}</span>
+                </span>
+              ) : null}
+              <span className="text-gray-600 text-xs font-medium leading-none">
+                {formatDate(review.date)}
+              </span>
+            </div>
+
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center justify-center rounded-md p-2 bg-transparent hover:bg-transparent focus:bg-transparent border-0 shadow-none"
+              aria-label="Share this review on WhatsApp"
+              title="Share on WhatsApp"
+            >
+              <Share2 className="w-4 h-4 text-gray-700" />
+            </button>
+          </div>
         </div>
 
+        {/* Review body */}
         <div className="mt-3 w-full">
-          <div className="w-full px-5 py-4 text-gray-900 text-base font-medium break-words" style={{ background: "#DCF8C6" }}>
+          <div
+            className="w-full px-5 py-4 text-gray-900 text-base font-medium break-words"
+            style={{ background: "#DCF8C6" }}
+          >
             <span style={{ display: "block", wordBreak: "break-word" }}>{review.uplaud}</span>
           </div>
         </div>
@@ -854,36 +913,78 @@ const ProfilePage = () => {
 
   if (loading)
     return (
-      <div className="flex justify-center items-center h-80 text-lg text-white/90" style={{ background: "#6D46C6" }}>
-        Loading…
-      </div>
+      <>
+        <StickyLogoNavbar />
+        <div
+          className="flex justify-center items-center h-80 text-lg text-white pt-20"
+          style={{ background: "transparent" }}
+        >
+          Loading…
+        </div>
+      </>
     );
   if (!user)
     return (
-      <div className="min-h-screen flex items-center justify-center text-white" style={{ background: "#6D46C6" }}>
-        User not found. Please log in again.
-      </div>
+      <>
+        <StickyLogoNavbar />
+        <div
+          className="min-h-screen flex items-center justify-center text-white pt-20"
+          style={{ background: "transparent" }}
+        >
+          User not found. Please log in again.
+        </div>
+      </>
     );
 
   return (
-    <div className="min-h-screen w-full font-sans text-gray-800 relative" style={{ background: "#6D46C6", fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif` }}>
-      {/* Back Button */}
-      <button
-        onClick={() => navigate("/leaderboard")}
-        className="fixed sm:absolute top-4 left-4 z-50 font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
-        style={{ minWidth: 44, minHeight: 44, background: "rgba(255,255,255,0.88)", color: "#6D46C6", backdropFilter: "blur(6px)" }}
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="hidden sm:inline">Back</span>
-      </button>
+    <div
+      className="min-h-screen w-full font-sans text-gray-800 relative"
+      style={{
+        background: "transparent", // let the page show the #6214a8 body color
+        fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif`,
+      }}
+    >
+      {/* Sticky logo navbar */}
+      <StickyLogoNavbar />
 
-      <div className="max-w-4xl mx-auto space-y-6 relative z-10 pt-16 sm:pt-0 px-2 sm:px-0">
+      {/* Page content */}
+      <div className="max-w-4xl mx-auto space-y-6 relative z-10 px-2 sm:px-0 pt-24">
+        {/* Back button row */}
+        <div className="flex items-center justify-start">
+          <button
+            onClick={() => navigate("/leaderboard")}
+            className="font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              background: "rgba(255,255,255,0.88)",
+              color: "#6214a8",
+              backdropFilter: "blur(6px)",
+            }}
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Back</span>
+          </button>
+        </div>
+
         {/* Profile Card */}
-        <div className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-6" style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.6)" }}>
+        <div
+          className="shadow-lg rounded-2xl p-5 sm:p-6 flex flex-col gap-5 border mt-2"
+          style={{
+            background: "rgba(255,255,255,0.75)",
+            backdropFilter: "blur(8px)",
+            borderColor: "rgba(255,255,255,0.6)",
+          }}
+        >
           <div className="flex items-center gap-4">
             <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-purple-100 rounded-full flex items-center justify-center text-2xl sm:text-3xl font-extrabold text-purple-700 select-none">
               {user?.image ? (
-                <img src={user.image} alt={user?.name || "User"} className="w-full h-full object-cover rounded-full" />
+                <img
+                  src={user.image}
+                  alt={user?.name || "User"}
+                  className="w-full h-full object-cover rounded-full"
+                />
               ) : (
                 user?.name?.split(" ").map((n: string) => n[0]).join("")
               )}
@@ -893,9 +994,13 @@ const ProfilePage = () => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2 flex-wrap">
-                  <h2 className="font-extrabold text-xl sm:text-2xl truncate">{user?.name}</h2>
+                  <h2 className="font-extrabold text-xl sm:text-2xl truncate">
+                    {user?.name}
+                  </h2>
                   {user?.handle && (
-                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">@{user.handle}</span>
+                    <span className="text-xs bg-purple-100 text-purple-600 rounded-full px-2 py-1 whitespace-nowrap">
+                      @{user.handle}
+                    </span>
                   )}
                 </div>
 
@@ -932,17 +1037,35 @@ const ProfilePage = () => {
           </div>
 
           {/* Stats */}
-          <ColoredStatsTabs totalReviews={reviews.length} points={points} referralCount={referralCount} />
+          <ColoredStatsTabs
+            totalReviews={reviews.length}
+            points={points}
+            referralCount={referralCount}
+          />
         </div>
 
         {/* Earned badges */}
-        <Card className="w-full backdrop-blur-md" style={{ background: "rgba(255,255,255,0.16)", border: "1px solid rgba(255,255,255,0.35)", boxShadow: "0 12px 30px rgba(0,0,0,0.08)" }}>
+        <Card
+          className="w-full backdrop-blur-md"
+          style={{
+            background: "rgba(255,255,255,0.16)",
+            border: "1px solid rgba(255,255,255,0.35)",
+            boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+          }}
+        >
           <div className="px-3 pb-3 pt-3">
             {earnedAchievements.length === 0 ? (
-              <div className="text-center text-white/90 py-1 text-sm">No badges yet — start reviewing to earn your first badge!</div>
+              <div className="text-center text-white/90 py-1 text-sm">
+                No badges yet — start reviewing to earn your first badge!
+              </div>
             ) : (
               <TooltipProvider>
-                <div className="gap-3 grid" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))` }}>
+                <div
+                  className="gap-3 grid"
+                  style={{
+                    gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
+                  }}
+                >
                   {earnedAchievements.map((a) => (
                     <BadgeTile key={a.id} badge={a} size={badgeMin} />
                   ))}
@@ -953,16 +1076,27 @@ const ProfilePage = () => {
         </Card>
 
         {/* Tabs container */}
-        <div className="rounded-2xl p-4" style={{ background: "transparent", borderColor: "transparent" }}>
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: "transparent", borderColor: "transparent" }}
+        >
           <div className="flex gap-6 mb-6 text-base font-semibold border-b border-white/30">
             <button
-              className={`pb-2 -mb-[2px] px-1 transition ${activeTab === "Reviews" ? "text-white border-b-2 border-white" : "text-white/80 hover:text-white"}`}
+              className={`pb-2 -mb-[2px] px-1 transition ${
+                activeTab === "Reviews"
+                  ? "text-white border-b-2 border-white"
+                  : "text-white/80 hover:text-white"
+              }`}
               onClick={() => setActiveTab("Reviews")}
             >
               Reviews
             </button>
             <button
-              className={`pb-2 -mb-[2px] px-1 transition ${activeTab === "Analytics" ? "text-white border-b-2 border-white" : "text-white/80 hover:text-white"}`}
+              className={`pb-2 -mb-[2px] px-1 transition ${
+                activeTab === "Analytics"
+                  ? "text-white border-b-2 border-white"
+                  : "text-white/80 hover:text-white"
+              }`}
               onClick={() => setActiveTab("Analytics")}
             >
               Activity
@@ -972,13 +1106,17 @@ const ProfilePage = () => {
           {activeTab === "Reviews" && (
             <div>
               {reviews.length === 0 ? (
-                <div className="text-center text-white/90 py-8">You haven’t posted any reviews yet.</div>
+                <div className="text-center text-white/90 py-8">
+                  You haven’t posted any reviews yet.
+                </div>
               ) : (
                 <div>
                   <div className="space-y-7">
-                    {(showAllReviews ? reviews : reviews.slice(0, 5)).map((review, idx) => (
-                      <ReviewCardLocal key={idx} review={review} />
-                    ))}
+                    {(showAllReviews ? reviews : reviews.slice(0, 5)).map(
+                      (review, idx) => (
+                        <ReviewCardLocal key={idx} review={review} />
+                      )
+                    )}
                   </div>
                   {reviews.length > 5 && (
                     <div className="flex justify-center mt-6">
@@ -997,14 +1135,10 @@ const ProfilePage = () => {
 
           {activeTab === "Analytics" && (
             <div>
-              <h2 className="font-bold text-xl mb-4 flex items-center gap-2 text-white">
-                <BarChart2 className="w-5 h-5" /> Activity
-              </h2>
-
-              {/* Points Breakdown */}
+              {/* Points Breakdown – no "Activity" title, no referral inner list */}
               <div className="grid grid-cols-1 gap-3 mb-6">
                 <div className="rounded-xl p-3 bg-white/90 backdrop-blur border shadow-sm overflow-hidden box-border">
-                  <div className="text-sm text-gray-800 font-semibold mb-2">Points Breakdown</div>
+                  <div className="text-sm text-gray-800 font-semibold mb-2"></div>
 
                   <div className="text-gray-900 text-sm mb-2">
                     <div>
@@ -1023,7 +1157,9 @@ const ProfilePage = () => {
                     <span className="text-sm font-semibold text-amber-900 min-w-0 truncate">
                       From Reviews ({totalReviews})
                     </span>
-                    <span className="text-sm font-bold text-amber-900 shrink-0">+{pointsFromReviews}</span>
+                    <span className="text-sm font-bold text-amber-900 shrink-0">
+                      +{pointsFromReviews}
+                    </span>
                     {openReviewsPB ? (
                       <ChevronUp className="w-4 h-4 text-amber-900 shrink-0" />
                     ) : (
@@ -1040,7 +1176,10 @@ const ProfilePage = () => {
                           style={{ borderColor: "rgba(0,0,0,0.08)" }}
                         >
                           <span className="truncate min-w-0">
-                            {it.label} {it.when ? <span className="text-gray-500">({it.when})</span> : null}
+                            {it.label}{" "}
+                            {it.when ? (
+                              <span className="text-gray-500">({it.when})</span>
+                            ) : null}
                           </span>
                           <span className="font-semibold ml-2 shrink-0">+10</span>
                         </li>
@@ -1053,7 +1192,7 @@ const ProfilePage = () => {
                     </ul>
                   )}
 
-                  {/* Referrals accordion */}
+                  {/* Referrals accordion – only totals, no details */}
                   <div className="mt-3">
                     <button
                       onClick={() => setOpenRefPB((o) => !o)}
@@ -1062,41 +1201,21 @@ const ProfilePage = () => {
                       <span className="text-sm font-semibold text-emerald-900 min-w-0 truncate">
                         From Referrals ({referralCount})
                       </span>
-                      <span className="text-sm font-bold text-emerald-900 shrink-0">+{pointsFromReferrals}</span>
+                      <span className="text-sm font-bold text-emerald-900 shrink-0">
+                        +{pointsFromReferrals}
+                      </span>
                       {openRefPB ? (
                         <ChevronUp className="w-4 h-4 text-emerald-900 shrink-0" />
                       ) : (
                         <ChevronDown className="w-4 h-4 text-emerald-900 shrink-0" />
                       )}
                     </button>
-
-                    {openRefPB && (
-                      <>
-                        {referralBreakdownItems.length > 0 ? (
-                          <ul className="mt-2 grid gap-1.5">
-                            {referralBreakdownItems.map((it, i) => (
-                              <li
-                                key={`ref-${i}`}
-                                className="text-xs flex items-center justify-between gap-2 bg-white hover:bg-white rounded-md px-3 py-2 border transition min-w-0"
-                                style={{ borderColor: "rgba(0,0,0,0.08)" }}
-                              >
-                                <span className="truncate min-w-0">
-                                  {it.label} {it.when ? <span className="text-gray-500">({it.when})</span> : null}
-                                </span>
-                                <span className="font-semibold ml-2 shrink-0">+20</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <div className="text-xs text-gray-500 mt-2">No referral points yet.</div>
-                        )}
-                      </>
-                    )}
+                    {/* Intentionally no inner list/content per requirements */}
                   </div>
                 </div>
               </div>
 
-              {/* Username’s Referrals (possessive) */}
+              {/* Username’s Referrals */}
               <h3 className="text-base font-semibold text-white mb-3">
                 {user?.name ? `${possessive(user.name)} Referrals` : "Referrals"}
               </h3>
@@ -1104,9 +1223,9 @@ const ProfilePage = () => {
                 {referralsUI.length === 0 ? (
                   <div className="text-white/80">No referrals yet.</div>
                 ) : (
-                  (showAllReferrals ? referralsUI : referralsUI.slice(0, 5)).map((r) => (
-                    <ReferralCard key={r.id} referral={r} />
-                  ))
+                  (showAllReferrals ? referralsUI : referralsUI.slice(0, 5)).map(
+                    (r) => <ReferralCard key={r.id} referral={r} />
+                  )
                 )}
               </div>
               {referralsUI.length > 5 && (
@@ -1124,12 +1243,16 @@ const ProfilePage = () => {
               <div className="mb-2">
                 <div className="font-semibold text-white mb-2">Badge Goals</div>
                 {lockedAchievements.length === 0 ? (
-                  <div className="text-white/80 text-sm">You’ve unlocked all available badges. 🙌</div>
+                  <div className="text-white/80 text-sm">
+                    You’ve unlocked all available badges. 🙌
+                  </div>
                 ) : (
                   <TooltipProvider>
                     <div
                       className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"
-                      style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))` }}
+                      style={{
+                        gridTemplateColumns: `repeat(auto-fit, minmax(${badgeMin}px, 1fr))`,
+                      }}
                     >
                       {lockedAchievements.map((a) => (
                         <BadgeTile
@@ -1153,13 +1276,14 @@ const ProfilePage = () => {
 
       {/* Styles */}
       <style>{`
-        body { background: #6D46C6 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
+        /* Solid purple background across the whole page */
+        body { background: #6214a8 !important; font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif !important; }
 
         .business-hover-underline { transition: color 0.2s; position: relative; }
-        .business-hover-underline:hover, .business-hover-underline:focus { color: #6D46C6 !important; }
+        .business-hover-underline:hover, .business-hover-underline:focus { color: #6214a8 !important; }
         .business-hover-underline::after {
           content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
-          background: #6D46C6; border-radius: 1px; opacity: 0; transform: scaleX(0.7);
+          background: #6214a8; border-radius: 1px; opacity: 0; transform: scaleX(0.7);
           transition: opacity 0.18s, transform 0.2s;
         }
         .business-hover-underline:hover::after, .business-hover-underline:focus::after { opacity: 1; transform: scaleX(1); }
