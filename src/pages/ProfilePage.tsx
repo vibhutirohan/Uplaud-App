@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Star,
@@ -391,7 +391,7 @@ const ColoredStatsTabs = ({
   );
 };
 
-/* ===== Badge tile ===== */
+/* ===== Badge tile (fixed: no stuck tooltips) ===== */
 function BadgeTile({
   badge,
   locked = false,
@@ -415,6 +415,7 @@ function BadgeTile({
 }) {
   const isTouch = useIsTouch();
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   const nameColor = textClass || (locked ? "text-gray-800" : "text-white");
   const pct =
@@ -422,11 +423,29 @@ function BadgeTile({
       ? Math.min(100, (badge.progress.current / badge.progress.total) * 100)
       : 0;
 
+  // Mobile: close when tapping outside or when scrolling/gesture ends
+  useEffect(() => {
+    if (!isTouch || !open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!rootRef.current) return;
+      if (!rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onScroll = () => setOpen(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [isTouch, open]);
+
   const inner = (
     <div
+      ref={rootRef}
       className="cursor-pointer text-center relative"
       style={{ width: size, margin: "0 auto" }}
       onClick={() => isTouch && setOpen((o) => !o)}
+      onPointerLeave={() => isTouch && setOpen(false)}
     >
       <div className="relative rounded-xl overflow-hidden" style={{ width: size, height: size }}>
         <img
@@ -456,7 +475,7 @@ function BadgeTile({
       )}
 
       {isTouch && open && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-20 w-44 rounded-md border bg-white text-gray-800 text-xs shadow-lg px-3 py-2">
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-44 rounded-md border bg-white text-gray-800 text-xs shadow-lg px-3 py-2">
           <div className="font-semibold">{badge.name}</div>
           <div className="opacity-80 mt-0.5">{badge.description}</div>
         </div>
@@ -464,10 +483,11 @@ function BadgeTile({
     </div>
   );
 
+  // Desktop hover tooltips (now auto-close cleanly)
   if (isTouch) return inner;
 
   return (
-    <Tooltip>
+    <Tooltip delayDuration={100} disableHoverableContent>
       <TooltipTrigger asChild>{inner}</TooltipTrigger>
       <TooltipContent
         side="bottom"
@@ -940,16 +960,14 @@ const ProfilePage = () => {
     <div
       className="min-h-screen w-full font-sans text-gray-800 relative"
       style={{
-        background: "transparent", // let the page show the #6214a8 body color
+        background: "transparent",
         fontFamily: `'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif`,
       }}
     >
-      {/* Sticky logo navbar */}
       <StickyLogoNavbar />
 
-      {/* Page content */}
       <div className="max-w-4xl mx-auto space-y-6 relative z-10 px-2 sm:px-0 pt-24">
-        {/* Back button row */}
+        {/* Back */}
         <div className="flex items-center justify-start">
           <button
             onClick={() => navigate("/leaderboard")}
@@ -1059,7 +1077,7 @@ const ProfilePage = () => {
                 No badges yet — start reviewing to earn your first badge!
               </div>
             ) : (
-              <TooltipProvider>
+              <TooltipProvider delayDuration={100}>
                 <div
                   className="gap-3 grid"
                   style={{
@@ -1192,7 +1210,7 @@ const ProfilePage = () => {
                     </ul>
                   )}
 
-                  {/* Referrals accordion – only totals, no details */}
+                  {/* Referrals accordion – only totals */}
                   <div className="mt-3">
                     <button
                       onClick={() => setOpenRefPB((o) => !o)}
@@ -1210,7 +1228,6 @@ const ProfilePage = () => {
                         <ChevronDown className="w-4 h-4 text-emerald-900 shrink-0" />
                       )}
                     </button>
-                    {/* Intentionally no inner list/content per requirements */}
                   </div>
                 </div>
               </div>
@@ -1247,7 +1264,7 @@ const ProfilePage = () => {
                     You’ve unlocked all available badges. 🙌
                   </div>
                 ) : (
-                  <TooltipProvider>
+                  <TooltipProvider delayDuration={100}>
                     <div
                       className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3"
                       style={{

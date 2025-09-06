@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, MapPin, Tag, Users, Share2, Star, ClipboardList } from "lucide-react";
+import {
+  ArrowLeft,
+  MapPin,
+  Tag,
+  Users,
+  Share2,
+  Star,
+  ClipboardList,
+} from "lucide-react";
 import axios from "axios";
 import nlp from "compromise";
 import { Button } from "@/components/ui/button";
@@ -18,26 +26,41 @@ const CIRCLES_TABLE = "tbldL8H5T4qYKUzLV";
 function slugify(name = "") {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
 }
-function formatDate(date: Date | null) {
+function formatDate(date?: Date | null) {
   if (!date) return "";
-  return date.toLocaleDateString("en-US", { day: "2-digit", month: "long", year: "numeric" });
+  return date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "2-digit",
+    year: "numeric",
+  });
 }
 function emojiForScore(score?: number | null) {
-  if (score === 5) return "🔥";
+  if (!score) return "🤍";
+  if (score >= 5) return "🔥";
   if (score === 4) return "😍";
-  if (score === 3 || score === 2) return "😐";
-  if (score === 1) return "😤";
-  return "😐";
+  if (score === 3) return "🙂";
+  if (score === 2) return "😐";
+  return "😶";
 }
 function isValidCity(value?: string) {
   if (!value) return false;
   const s = value.trim();
   if (!s) return false;
-  const placeholders = new Set(["unknown", "n/a", "na", "none", "-", "--", "null", "undefined", "not available"]);
+  const placeholders = new Set([
+    "unknown",
+    "n/a",
+    "na",
+    "none",
+    "-",
+    "--",
+    "null",
+    "undefined",
+    "not available",
+  ]);
   return !placeholders.has(s.toLowerCase());
 }
 
-/* ===================== Sticky Logo Navbar (same as Profile) ===================== */
+/* ===================== Sticky Logo Navbar ===================== */
 function StickyLogoNavbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   useEffect(() => {
@@ -48,13 +71,19 @@ function StickyLogoNavbar() {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? "bg-[#6214a8]/95 backdrop-blur-sm shadow-md py-2" : "bg-transparent py-4"
+        isScrolled
+          ? "bg-[#6214a8]/95 backdrop-blur-sm shadow-md py-2"
+          : "bg-transparent py-4"
       }`}
     >
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
           <Link to="/" className="flex items-center">
-            <img alt="Uplaud Logo" className="h-10 w-auto object-fill" src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png" />
+            <img
+              alt="Uplaud Logo"
+              className="h-10 w-auto object-fill"
+              src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
+            />
           </Link>
           <div className="w-10 h-10" />
         </div>
@@ -86,16 +115,22 @@ function MostMentionedWordsCard({ reviews }: { reviews: any[] }) {
 
   return (
     <div
-      className="rounded-3xl p-8 border shadow-lg h-full"
-      style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.6)" }}
+      className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 border shadow-lg h-full"
+      style={{
+        background: "rgba(255,255,255,0.75)",
+        backdropFilter: "blur(8px)",
+        borderColor: "rgba(255,255,255,0.6)",
+      }}
     >
-      <h3 className="text-2xl font-black text-black mb-5">What people are saying</h3>
+      <h3 className="text-xl sm:text-2xl font-black text-black mb-4 sm:mb-5">
+        What people are saying
+      </h3>
       {keywords.length ? (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2.5 sm:gap-3">
           {keywords.map(({ word, count }) => (
             <div
               key={word}
-              className="bg-purple-100 text-purple-700 px-6 py-3 rounded-full font-semibold hover:bg-purple-200 transition"
+              className="bg-purple-100 text-purple-700 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full font-semibold hover:bg-purple-200 transition"
               title={`${count} mention${count === 1 ? "" : "s"}`}
             >
               {word} ({count})
@@ -117,7 +152,9 @@ function UniqueReviewersTab({ numReviewers }: { numReviewers: number }) {
         <Users className="w-8 h-8" />
       </div>
       <div className="text-3xl font-black text-black mb-1">{numReviewers}</div>
-      <div className="text-lg font-black text-gray-600 mb-1">Unique Reviewer{numReviewers === 1 ? "" : "s"}</div>
+      <div className="text-lg font-black text-gray-600 mb-1">
+        Unique Reviewer{numReviewers === 1 ? "" : "s"}
+      </div>
       <div className="mt-1 text-base text-gray-600 text-center">
         This business has received {numReviewers} unique review{numReviewers === 1 ? "" : "s"} from real users.
       </div>
@@ -128,8 +165,8 @@ function OverallSentimentTab({ sentimentScore }: { sentimentScore: number }) {
   const steps = [
     { emoji: "🔥", label: "Amazing" },
     { emoji: "😍", label: "Love it" },
-    { emoji: "😐", label: "Okay" },
-    { emoji: "😤", label: "Issues" },
+    { emoji: "🙂", label: "Okay" },
+    { emoji: "😶", label: "Issues" },
   ];
   return (
     <div className="flex flex-col justify-center h-full py-6">
@@ -137,12 +174,15 @@ function OverallSentimentTab({ sentimentScore }: { sentimentScore: number }) {
       <div className="bg-gray-100 rounded-full h-8 overflow-hidden mb-3">
         <div className="h-full flex">
           <div
-            className="flex items-center justify-center text-white text-sm font-bold transition-all duration-1000 ease-out bg-gradient-to-r from-purple-600 to-purple-500"
+            className="h-full flex items-center justify-center text-white text-sm font-bold transition-all duration-1000 ease-out bg-gradient-to-r from-purple-600 to-purple-500"
             style={{ width: `${sentimentScore}%` }}
           >
             {sentimentScore > 7 ? `${sentimentScore}%` : ""}
           </div>
-          <div className="bg-gray-400 flex items-center justify-center text-white text-sm font-bold" style={{ width: `${100 - sentimentScore}%` }}>
+          <div
+            className="bg-gray-400 flex items-center justify-center text-white text-sm font-bold"
+            style={{ width: `${100 - sentimentScore}%` }}
+          >
             {sentimentScore <= 7 ? `${sentimentScore}%` : ""}
           </div>
         </div>
@@ -173,8 +213,12 @@ function RightAnalyticsTabs({ numReviewers, sentimentScore }: { numReviewers: nu
 
   return (
     <motion.div
-      className="rounded-3xl p-8 border shadow-lg h-full"
-      style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.6)" }}
+      className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 border shadow-lg h-full"
+      style={{
+        background: "rgba(255,255,255,0.75)",
+        backdropFilter: "blur(8px)",
+        borderColor: "rgba(255,255,255,0.6)",
+      }}
       onMouseLeave={() => setAuto(true)}
     >
       <div className="flex justify-center gap-2 mb-4">
@@ -219,19 +263,21 @@ function RightAnalyticsTabs({ numReviewers, sentimentScore }: { numReviewers: nu
   );
 }
 
-/* ===================== Header (Profile look) ===================== */
+/* ===================== Header (colorful chips + mobile claim) ===================== */
 function BusinessHeader({
   name,
   city,
   category,
   totalReviews,
   referralCount,
+  onShare,
 }: {
   name: string;
   city: string;
   category: string;
   totalReviews: number;
   referralCount: number;
+  onShare: () => void;
 }) {
   const handleClaimClick = () => {
     window.open(
@@ -241,75 +287,124 @@ function BusinessHeader({
   };
   const showCity = isValidCity(city);
 
-  // same pill style as Profile’s ColoredStatsTabs
+  // Colorful stat pills (match Profile look) but sized like the badges for uniform height
   const Pill = ({
     bg,
     ring,
+    text,
     icon,
     label,
     value,
   }: {
     bg: string;
     ring: string;
+    text: string;
     icon: React.ReactNode;
     label: string;
     value: number | string;
   }) => (
-    <div className={`rounded-xl ${bg} ${ring} px-3 py-2 shadow-sm flex items-center gap-2`} style={{ backdropFilter: "blur(4px)" }}>
+    <div
+      className={`px-5 sm:px-6 py-2.5 sm:py-3 rounded-full font-semibold flex items-center gap-2 ${bg} ${ring} ${text}`}
+      style={{ backdropFilter: "blur(4px)" }}
+    >
       {icon}
-      <span className="text-lg font-extrabold tabular-nums">{value}</span>
-      <span className="text-[13px] font-semibold whitespace-nowrap">{label}</span>
+      <span className="tabular-nums">{value}</span>
+      <span className="whitespace-nowrap">{label}</span>
     </div>
   );
 
   return (
     <div
-      className="rounded-3xl p-8 border shadow-sm mb-10 flex flex-col sm:flex-row justify-between items-center gap-6"
-      style={{ background: "rgba(255,255,255,0.75)", backdropFilter: "blur(8px)", borderColor: "rgba(255,255,255,0.6)" }}
+      className="rounded-2xl sm:rounded-3xl p-6 sm:p-8 border shadow-sm mb-8 sm:mb-10 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 sm:gap-6"
+      style={{
+        background: "rgba(255,255,255,0.75)",
+        backdropFilter: "blur(8px)",
+        borderColor: "rgba(255,255,255,0.6)",
+      }}
     >
+      {/* Left: title & chips */}
       <div className="flex-1 min-w-0 w-full">
-        <h1 className="text-2xl md:text-4xl lg:text-2xl font-black text-black mb-4 tracking-tight truncate">{name}</h1>
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-start justify-between gap-3">
+          {/* Full name on all breakpoints (wraps) */}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-black tracking-tight break-words whitespace-normal">
+            {name}
+          </h1>
+
+          {/* Mobile share (next to title) */}
+          <button
+            onClick={onShare}
+            className="sm:hidden shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white/80 p-2 shadow"
+            aria-label="Share business"
+            title="Share"
+          >
+            <Share2 className="w-5 h-5 text-gray-700" />
+          </button>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3 sm:gap-4">
           {showCity && (
-            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-6 py-3 rounded-full text-base font-semibold border-0 flex items-center gap-2">
-              <MapPin className="w-5 h-5" />
+            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full text-sm sm:text-base font-semibold border-0 flex items-center gap-2">
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
               {city}
             </Badge>
           )}
           {category && (
-            <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-6 py-3 rounded-full text-base font-semibold border-0 flex items-center gap-2">
-              <Tag className="w-5 h-5" />
+            <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-5 sm:px-6 py-2.5 sm:py-3 rounded-full text-sm sm:text-base font-semibold border-0 flex items-center gap-2">
+              <Tag className="w-4 h-4 sm:w-5 sm:h-5" />
               {category}
             </Badge>
           )}
 
-          {/* NEW: two stat pills, same UI as profile */}
-          <div className="flex gap-2">
-            <Pill
-              bg="bg-amber-50 text-amber-800"
-              ring="ring-1 ring-amber-200"
-              icon={<Star className="w-4 h-4" />}
-              label="Reviews"
-              value={totalReviews}
-            />
-            <Pill
-              bg="bg-rose-50 text-rose-800"
-              ring="ring-1 ring-rose-200"
-              icon={<ClipboardList className="w-4 h-4" />}
-              label="Referrals"
-              value={referralCount}
-            />
-          </div>
+          {/* Colorful stat pills (uniform size with the badges) */}
+          <Pill
+            bg="bg-amber-50"
+            ring="ring-1 ring-amber-200"
+            text="text-amber-800"
+            icon={<Star className="w-4 h-4" />}
+            label="Reviews"
+            value={totalReviews}
+          />
+          <Pill
+            bg="bg-rose-50"
+            ring="ring-1 ring-rose-200"
+            text="text-rose-800"
+            icon={<ClipboardList className="w-4 h-4" />}
+            label="Referrals"
+            value={referralCount}
+          />
+        </div>
+
+        {/* Mobile: show Claim button under the chips */}
+        <div className="sm:hidden mt-4">
+          <Button
+            variant="outline"
+            className="w-full border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 rounded-full px-6 py-3 font-semibold"
+            onClick={handleClaimClick}
+          >
+            Claim this business
+          </Button>
         </div>
       </div>
 
-      <Button
-        variant="outline"
-        className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 rounded-full px-8 py-3 font-semibold text-base whitespace-nowrap"
-        onClick={handleClaimClick}
-      >
-        Claim this business
-      </Button>
+      {/* Desktop: share above claim */}
+      <div className="hidden sm:flex flex-col items-end gap-2">
+        <button
+          onClick={onShare}
+          className="inline-flex items-center justify-center border border-gray-200 text-gray-700 px-3 py-2 rounded-lg shadow w-fit"
+          title="Share"
+          style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(6px)" }}
+        >
+          <Share2 className="w-5 h-5" />
+        </button>
+
+        <Button
+          variant="outline"
+          className="border-2 border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300 rounded-full px-8 py-3 font-semibold whitespace-nowrap"
+          onClick={handleClaimClick}
+        >
+          Claim this business
+        </Button>
+      </div>
     </div>
   );
 }
@@ -320,9 +415,17 @@ const BusinessPage = () => {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [business, setBusiness] = useState({ name: "", city: "", category: "", reviews: [] as any[] });
+  const [business, setBusiness] = useState({
+    name: "",
+    city: "",
+    category: "",
+    reviews: [] as any[],
+  });
   const [sentimentScore, setSentimentScore] = useState(0);
-  const [referralMeta, setReferralMeta] = useState({ numReferrals: 0, numReviewers: 0 });
+  const [referralMeta, setReferralMeta] = useState({
+    numReferrals: 0,
+    numReviewers: 0,
+  });
 
   const [showAllReviews, setShowAllReviews] = useState(false);
 
@@ -335,10 +438,13 @@ const BusinessPage = () => {
         let offset: string | undefined = undefined;
         do {
           const params: any = { pageSize: 100, offset };
-          const revResp = await axios.get(`https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`, {
-            headers: { Authorization: `Bearer ${API_KEY}` },
-            params,
-          });
+          const revResp = await axios.get(
+            `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
+            {
+              headers: { Authorization: `Bearer ${API_KEY}` },
+              params,
+            }
+          );
           allReviews = allReviews.concat(revResp.data.records);
           offset = revResp.data.offset;
         } while (offset);
@@ -348,7 +454,11 @@ const BusinessPage = () => {
           .map((r: any) => {
             const rawCity = r.fields["City"];
             const safeCity =
-              typeof rawCity === "string" ? rawCity.trim() : Array.isArray(rawCity) ? String(rawCity[0] || "").trim() : "";
+              typeof rawCity === "string"
+                ? rawCity.trim()
+                : Array.isArray(rawCity)
+                ? String(rawCity[0] || "").trim()
+                : "";
             let userName = "";
             if (typeof r.fields["Name_Creator"] === "string" && r.fields["Name_Creator"].trim() !== "") {
               userName = r.fields["Name_Creator"];
@@ -384,15 +494,20 @@ const BusinessPage = () => {
         let refOffset: string | undefined = undefined;
         do {
           const params: any = { pageSize: 100, offset: refOffset };
-          const circlesResp = await axios.get(`https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`, {
-            headers: { Authorization: `Bearer ${API_KEY}` },
-            params,
-          });
+          const circlesResp = await axios.get(
+            `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
+            {
+              headers: { Authorization: `Bearer ${API_KEY}` },
+              params,
+            }
+          );
           allReferrals = allReferrals.concat(circlesResp.data.records);
           refOffset = circlesResp.data.offset;
         } while (refOffset);
 
-        const referralsForBusiness = allReferrals.filter((r: any) => slugify(r.fields.business_name || "") === slug);
+        const referralsForBusiness = allReferrals.filter(
+          (r: any) => slugify(r.fields.business_name || "") === slug
+        );
 
         const initiatorSet = new Set<string>();
         referralsForBusiness.forEach((r: any) => {
@@ -418,7 +533,12 @@ const BusinessPage = () => {
         });
         setSentimentScore(computedSentiment);
       } catch {
-        setBusiness({ name: slug ? slug.replace(/-/g, " ") : "", city: "", category: "", reviews: [] });
+        setBusiness({
+          name: slug ? slug.replace(/-/g, " ") : "",
+          city: "",
+          category: "",
+          reviews: [],
+        });
         setSentimentScore(0);
         setReferralMeta({ numReferrals: 0, numReviewers: 0 });
       } finally {
@@ -428,16 +548,21 @@ const BusinessPage = () => {
     if (slug) fetchData();
   }, [slug]);
 
-  /* ========= REVIEW CARD ========= */
+  /* ========= SHARE ========= */
   function handleShareForBusiness() {
     const link = `${window.location.origin}/business/${slug}`;
     const message = `Hey, check out Real Reviews for ${business.name} on Uplaud. It’s a platform where real people give honest reviews on WhatsApp:\n${link}`;
     const wa = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.location.href = wa;
   }
+
+  /* ========= REVIEW CARD ========= */
   function ReviewCard({ review }: { review: any }) {
     return (
-      <div className="flex flex-col rounded-2xl shadow transition hover:shadow-xl overflow-hidden" style={{ background: "#FFF7E6" }}>
+      <div
+        className="flex flex-col rounded-2xl shadow transition hover:shadow-xl overflow-hidden"
+        style={{ background: "#FFF7E6" }}
+      >
         <div className="w-full px-5 pt-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Link
@@ -457,11 +582,15 @@ const BusinessPage = () => {
                       ★
                     </span>
                   ))}
-                  <span className="ml-1 text-lg sm:text-2xl leading-none">{emojiForScore(review.score)}</span>
+                  <span className="ml-1 text-lg sm:text-2xl leading-none">
+                    {emojiForScore(review.score)}
+                  </span>
                 </span>
               ) : null}
 
-              <span className="text-gray-500 text-xs sm:text-sm font-medium leading-none">{formatDate(review.date)}</span>
+              <span className="text-gray-500 text-xs sm:text-sm font-medium leading-none">
+                {formatDate(review.date)}
+              </span>
 
               <button
                 onClick={handleShareForBusiness}
@@ -474,7 +603,7 @@ const BusinessPage = () => {
             </div>
           </div>
 
-          {/* Mobile-only strip */}
+          {/* Mobile meta */}
           <div className="sm:hidden mt-1 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {review.score ? (
@@ -484,10 +613,14 @@ const BusinessPage = () => {
                       ★
                     </span>
                   ))}
-                  <span className="ml-1 text-xl leading-none">{emojiForScore(review.score)}</span>
+                  <span className="ml-1 text-xl leading-none">
+                    {emojiForScore(review.score)}
+                  </span>
                 </span>
               ) : null}
-              <span className="text-gray-600 text-xs font-medium leading-none">{formatDate(review.date)}</span>
+              <span className="text-gray-600 text-xs font-medium leading-none">
+                {formatDate(review.date)}
+              </span>
             </div>
 
             <button
@@ -503,7 +636,10 @@ const BusinessPage = () => {
 
         {/* WhatsApp-style inner bubble */}
         <div className="mt-3 w-full">
-          <div className="w-full px-5 py-4 text-gray-900 text-base font-medium break-words" style={{ background: "#DCF8C6" }}>
+          <div
+            className="w-full px-5 py-4 text-gray-900 text-base font-medium break-words"
+            style={{ background: "#DCF8C6" }}
+          >
             <span style={{ display: "block", wordBreak: "break-word" }}>{review.uplaud}</span>
           </div>
         </div>
@@ -517,16 +653,26 @@ const BusinessPage = () => {
   const referralCount = referralMeta.numReferrals;
 
   return (
-    <div className="min-h-screen w-full" style={{ background: "transparent", fontFamily: `'Inter','Poppins','Segoe UI',Arial,sans-serif` }}>
+    <div
+      className="min-h-screen w-full"
+      style={{ background: "transparent", fontFamily: `'Inter','Poppins','Segoe UI',Arial,sans-serif` }}
+    >
       <StickyLogoNavbar />
 
-      <div className="max-w-6xl mx-auto px-2 sm:px-6 pt-24 pb-10">
-        {/* Back button row */}
-        <div className="flex items-center justify-start mb-4">
+      {/* Same width as Profile for alignment */}
+      <div className="max-w-4xl mx-auto space-y-6 relative z-10 px-2 sm:px-0 pt-24 pb-10">
+        {/* Back button */}
+        <div className="flex items-center justify-start">
           <button
             onClick={() => navigate(-1)}
             className="font-semibold rounded-md border border-purple-100 flex items-center gap-2 shadow hover:bg-purple-50 px-3 py-2 text-base transition"
-            style={{ minWidth: 44, minHeight: 44, background: "rgba(255,255,255,0.88)", color: "#6214a8", backdropFilter: "blur(6px)" }}
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              background: "rgba(255,255,255,0.88)",
+              color: "#6214a8",
+              backdropFilter: "blur(6px)",
+            }}
             aria-label="Back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -540,19 +686,16 @@ const BusinessPage = () => {
           category={business.category}
           totalReviews={totalReviews}
           referralCount={referralCount}
+          onShare={handleShareForBusiness}
         />
 
-        {/* === Analytics above Reviews === */}
-        <div className="w-full mt-2 mb-8 flex flex-col lg:flex-row gap-8">
-          <div className="w-full lg:w-1/2 flex-1">
-            <MostMentionedWordsCard reviews={business.reviews} />
-          </div>
-          <div className="w-full lg:w-1/2 flex-1">
-            <RightAnalyticsTabs numReviewers={referralMeta.numReviewers} sentimentScore={sentimentScore} />
-          </div>
+        {/* Analytics */}
+        <div className="w-full mt-2 mb-4 sm:mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+          <MostMentionedWordsCard reviews={business.reviews} />
+          <RightAnalyticsTabs numReviewers={referralMeta.numReviewers} sentimentScore={sentimentScore} />
         </div>
 
-        {/* Reviews section — single tab header (Profile style) */}
+        {/* Reviews */}
         <div className="rounded-2xl p-4" style={{ background: "transparent", borderColor: "transparent" }}>
           <div className="flex gap-6 mb-6 text-base font-semibold border-b border-white/30">
             <span className="pb-2 -mb-[2px] px-1 text-white border-b-2 border-white">Reviews</span>
@@ -584,7 +727,7 @@ const BusinessPage = () => {
         </div>
       </div>
 
-      {/* Styles */}
+      {/* Page background */}
       <style>{`
         body { background: #6214a8 !important; font-family: 'Inter','Poppins','Segoe UI',Arial,sans-serif !important; }
       `}</style>
