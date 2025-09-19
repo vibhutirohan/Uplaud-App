@@ -1,6 +1,6 @@
 // server.js — Uplaud backend (ESM)
-// Run locally: node server.js
-// Deploy on Vercel: export default app (used by /api/index.js function)
+// Local dev:  node server.js
+// Vercel:     /api/index.js imports and exports this app
 
 import express from "express";
 import cors from "cors";
@@ -20,14 +20,14 @@ const REVIEWS_TABLE =
 const CIRCLES_TABLE =
   process.env.AIRTABLE_CIRCLES_TABLE || process.env.CIRCLES_TABLE_ID;
 const USERS_TABLE =
-  process.env.AIRTABLE_USERS_TABLE || process.env.USERS_TABLE_ID; // (unused here, but logged)
+  process.env.AIRTABLE_USERS_TABLE || process.env.USERS_TABLE_ID; // (not used here, just logged)
 
 const app = express();
 
 /* ===================== Middleware ===================== */
 app.use(
   cors({
-    origin: true, // allow same-origin & dev
+    origin: true,          // allow same-origin & any dev origin
     credentials: true,
   })
 );
@@ -45,7 +45,7 @@ console.log("Boot:", {
 
 if (!API_KEY || !BASE_ID || !REVIEWS_TABLE || !CIRCLES_TABLE) {
   console.warn(
-    "⚠️  Missing Airtable env vars. Ensure AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_REVIEWS_TABLE, AIRTABLE_CIRCLES_TABLE in .env"
+    "⚠️  Missing Airtable env vars. Ensure AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_REVIEWS_TABLE, AIRTABLE_CIRCLES_TABLE are set."
   );
 }
 
@@ -53,9 +53,15 @@ if (!API_KEY || !BASE_ID || !REVIEWS_TABLE || !CIRCLES_TABLE) {
 const slugify = (s = "") =>
   s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
 
-const AT_HEADERS = API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {};
+// Axios base headers for Airtable
+const AT_HEADERS = API_KEY
+  ? {
+      Authorization: `Bearer ${API_KEY}`,
+      "User-Agent": "uplaud-backend/1.0",
+    }
+  : {};
 
-// Generic Airtable list with pagination
+// Generic Airtable list with pagination (+ small retry on 429)
 async function airtableList(tableId, params = {}) {
   if (!API_KEY) throw new Error("Missing AIRTABLE_API_KEY");
   if (!BASE_ID) throw new Error("Missing AIRTABLE_BASE_ID");
@@ -63,14 +69,42 @@ async function airtableList(tableId, params = {}) {
 
   let records = [];
   let offset;
-  do {
-    const resp = await axios.get(
-      `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
-      {
-        headers: AT_HEADERS,
-        params: { pageSize: 100, ...params, ...(offset ? { offset } : {}) },
+
+  // simple retry helper for rate limit
+  const fetchPage = async (p) => {
+    let attempt = 0;
+    // up to 3 attempts on 429
+    // (Airtable recommends exponential backoff)
+    while (true) {
+      try {
+        const resp = await axios.get(
+          `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+          {
+            headers: AT_HEADERS,
+            params: p,
+            timeout: 20000,
+          }
+        );
+        return resp;
+      } catch (err) {
+        const status = err?.response?.status;
+        if (status === 429 && attempt < 2) {
+          const wait = 500 * Math.pow(2, attempt); // 500ms, 1000ms
+          await new Promise((r) => setTimeout(r, wait));
+          attempt++;
+          continue;
+        }
+        throw err;
       }
-    );
+    }
+  };
+
+  do {
+    const resp = await fetchPage({
+      pageSize: 100,
+      ...params,
+      ...(offset ? { offset } : {}),
+    });
     const page = Array.isArray(resp.data?.records) ? resp.data.records : [];
     records = records.concat(page);
     offset = resp.data?.offset;
@@ -96,18 +130,14 @@ app.post("/api/send-otp", (req, res) => {
   const { phone } = req.body || {};
   const digits = String(phone || "").replace(/\D/g, "");
   if (digits.length < 10) {
-    return res
-      .status(400)
-      .json({ success: false, error: "Invalid phone number" });
+    return res.status(400).json({ success: false, error: "Invalid phone number" });
   }
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(digits, otp);
-  console.log(
-    `🔐 OTP for ${digits} is ${otp} (dev only — NEVER return or log this in prod)`
-  );
+  console.log(`🔐 OTP for ${digits} is ${otp} (dev only — do not log in prod)`);
   return res.json({
     success: true,
-    otp, // DEV ONLY — do not send back in production
+    otp, // DEV ONLY — never return OTP in production
     message: "OTP generated successfully.",
   });
 });
@@ -138,9 +168,9 @@ app.post("/api/verify-otp", (req, res) => {
 app.get("/api/reviews", async (req, res) => {
   try {
     const { businessSlug, debug } = req.query;
-    if (!businessSlug)
+    if (!businessSlug) {
       return res.status(400).json({ error: "businessSlug required" });
-
+    }
     const slug = String(businessSlug).toLowerCase();
 
     const fields = [
@@ -193,14 +223,14 @@ app.get("/api/reviews", async (req, res) => {
  * GET /api/circles?businessSlug=:slug[&debug=1]
  *
  * We avoid UNKNOWN_FIELD_NAME by not passing a 'fields' array.
- * We also expose record.createdTime as Date_Added for the frontend.
+ * We also expose Airtable record.createdTime as Date_Added for the frontend.
  */
 app.get("/api/circles", async (req, res) => {
   try {
     const { businessSlug, debug } = req.query;
-    if (!businessSlug)
+    if (!businessSlug) {
       return res.status(400).json({ error: "businessSlug required" });
-
+    }
     const slug = String(businessSlug).toLowerCase();
     const filterByFormula = slugMatchFormula("Business_Name", slug);
 
@@ -215,7 +245,7 @@ app.get("/api/circles", async (req, res) => {
         Receiver: f["Receiver"],
         Business_Name: f["Business_Name"],
         Date_Added: f["_createdTime"] || null, // expose createdTime as Date_Added
-        // Add these later only if fields exist in Airtable:
+        // If you add optional fields later, you can surface them safely:
         // ReferralStatus: f["ReferralStatus"] ?? null,
         // ReviewStatus: f["ReviewStatus"] ?? null,
       }));
@@ -240,7 +270,7 @@ app.use((req, res) => {
 });
 
 /* ===================== Export & Local Start ===================== */
-// Export the Express app for Vercel Serverless function
+// Export the Express app for Vercel serverless
 export default app;
 
 // Only listen when running locally (not on Vercel)
