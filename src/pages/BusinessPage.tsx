@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,7 +10,6 @@ import {
   ClipboardList,
 } from "lucide-react";
 import axios from "axios";
-import nlp from "compromise";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
@@ -85,26 +84,43 @@ function StickyLogoNavbar() {
   );
 }
 
-/* ===================== “What people are saying” ===================== */
+/* ===================== “What people are saying” (no external NLP) ===================== */
 function MostMentionedWordsCard({ reviews }: { reviews: any[] }) {
-  const counts: Record<string, number> = {};
-  const texts = reviews.map((r) => (r?.uplaud || "").trim()).filter(Boolean);
+  const keywords = useMemo(() => {
+    const texts = (reviews || [])
+      .map((r) => (typeof r?.uplaud === "string" ? r.uplaud.trim() : ""))
+      .filter(Boolean);
 
-  texts.forEach((t) => {
-    const doc = nlp(t);
-    const adj = (doc.adjectives().out("array") as string[]) || [];
-    const vb = (doc.verbs().out("array") as string[]) || [];
-    [...adj, ...vb].forEach((w) => {
-      const word = String(w || "").toLowerCase().replace(/[^a-z\s-]/g, "").trim();
-      if (!word || word.length < 3) return;
-      counts[word] = (counts[word] || 0) + 1;
-    });
-  });
+    const STOP = new Set([
+      "the","a","an","and","or","but","to","of","in","on","at","for","from","by","with","about","as",
+      "is","are","was","were","be","been","being","it","its","this","that","these","those",
+      "i","me","my","we","our","you","your","he","him","his","she","her","they","them","their",
+      "there","here","very","so","just","not","no","yes","if","than","then","when","while","because",
+      "into","out","over","under","again","more","most","some","such","can","could","should","would",
+      "did","do","does","done","has","have","had","will","won't","can't","don't","didn't","it's",
+      "u","ur","im","ive","id","we're","you're","they're","i'm","i’ve","i’d","you’ve","you’d",
+    ]);
 
-  const keywords = Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 12)
-    .map(([word, count]) => ({ word, count }));
+    const counts: Record<string, number> = {};
+    for (const t of texts) {
+      const words = t
+        .toLowerCase()
+        .replace(/[^a-z\s-]/g, " ")
+        .split(/\s+/)
+        .filter(Boolean);
+
+      for (let w of words) {
+        w = w.replace(/-+/g, "-").replace(/^-|-$/g, "");
+        if (!w || w.length < 3 || w === "-" || STOP.has(w)) continue;
+        counts[w] = (counts[w] || 0) + 1;
+      }
+    }
+
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 12)
+      .map(([word, count]) => ({ word, count }));
+  }, [reviews]);
 
   return (
     <div
@@ -131,7 +147,7 @@ function MostMentionedWordsCard({ reviews }: { reviews: any[] }) {
           ))}
         </div>
       ) : (
-        <div className="text-gray-500 text-base">No expressive/action keywords found.</div>
+        <div className="text-gray-500 text-base">No common keywords found yet.</div>
       )}
     </div>
   );
@@ -194,13 +210,22 @@ function OverallSentimentTab({ sentimentScore }: { sentimentScore: number }) {
     </div>
   );
 }
-function RightAnalyticsTabs({ numReviewers, sentimentScore }: { numReviewers: number; sentimentScore: number }) {
+function RightAnalyticsTabs({
+  numReviewers,
+  sentimentScore,
+}: {
+  numReviewers: number;
+  sentimentScore: number;
+}) {
   const [tab, setTab] = useState<"reviewers" | "sentiment">("reviewers");
   const [auto, setAuto] = useState(true);
 
   useEffect(() => {
     if (!auto) return;
-    const t = setInterval(() => setTab((p) => (p === "reviewers" ? "sentiment" : "reviewers")), 4000);
+    const t = setInterval(
+      () => setTab((p) => (p === "reviewers" ? "sentiment" : "reviewers")),
+      4000
+    );
     return () => clearInterval(t);
   }, [auto]);
 
@@ -217,7 +242,9 @@ function RightAnalyticsTabs({ numReviewers, sentimentScore }: { numReviewers: nu
       <div className="flex justify-center gap-2 mb-4">
         <motion.button
           className={`px-5 py-2 rounded-full font-semibold ${
-            tab === "reviewers" ? "bg-purple-600 text-white shadow" : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+            tab === "reviewers"
+              ? "bg-purple-600 text-white shadow"
+              : "bg-purple-50 text-purple-700 hover:bg-purple-100"
           }`}
           whileTap={{ scale: 0.98 }}
           onClick={() => {
@@ -229,7 +256,9 @@ function RightAnalyticsTabs({ numReviewers, sentimentScore }: { numReviewers: nu
         </motion.button>
         <motion.button
           className={`px-5 py-2 rounded-full font-semibold ${
-            tab === "sentiment" ? "bg-purple-600 text-white shadow" : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+            tab === "sentiment"
+              ? "bg-purple-600 text-white shadow"
+              : "bg-purple-50 text-purple-700 hover:bg-purple-100"
           }`}
           whileTap={{ scale: 0.98 }}
           onClick={() => {
@@ -243,11 +272,21 @@ function RightAnalyticsTabs({ numReviewers, sentimentScore }: { numReviewers: nu
 
       <AnimatePresence mode="wait">
         {tab === "reviewers" ? (
-          <motion.div key="reviewers" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+          <motion.div
+            key="reviewers"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <UniqueReviewersTab numReviewers={numReviewers} />
           </motion.div>
         ) : (
-          <motion.div key="sentiment" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+          <motion.div
+            key="sentiment"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+          >
             <OverallSentimentTab sentimentScore={sentimentScore} />
           </motion.div>
         )}
@@ -416,12 +455,16 @@ const BusinessPage = () => {
   const [showAllReviews, setShowAllReviews] = useState(false);
 
   useEffect(() => {
-    async function fetchData() {
+    if (!slug) return;
+
+    const controller = new AbortController();
+    const fetchData = async () => {
       setLoading(true);
       try {
         // ===== Reviews (via server) =====
         const { data: rev } = await axios.get("/api/reviews", {
           params: { businessSlug: slug },
+          signal: controller.signal,
         });
         const rawReviews = Array.isArray(rev?.reviews) ? rev.reviews : [];
 
@@ -447,6 +490,7 @@ const BusinessPage = () => {
         // ===== Referrals (via server) =====
         const { data: circ } = await axios.get("/api/circles", {
           params: { businessSlug: slug },
+          signal: controller.signal,
         });
         const circles = Array.isArray(circ?.circles) ? circ.circles : [];
 
@@ -467,17 +511,16 @@ const BusinessPage = () => {
 
         setReferralMeta({ numReferrals, numReviewers });
         setBusiness({
-          name:
-            filtered[0]?.business_name ||
-            (slug ? slug.replace(/-/g, " ") : ""),
+          name: filtered[0]?.business_name || slug.replace(/-/g, " "),
           city: firstCity,
           category: filtered[0]?.category || "",
           reviews: filtered,
         });
         setSentimentScore(computedSentiment);
-      } catch {
+      } catch (_err) {
+        // Gracefully degrade if your API/proxy is offline
         setBusiness({
-          name: slug ? slug.replace(/-/g, " ") : "",
+          name: slug.replace(/-/g, " "),
           city: "",
           category: "",
           reviews: [],
@@ -487,8 +530,10 @@ const BusinessPage = () => {
       } finally {
         setLoading(false);
       }
-    }
-    if (slug) fetchData();
+    };
+
+    fetchData();
+    return () => controller.abort();
   }, [slug]);
 
   /* ========= SHARE ========= */
@@ -598,7 +643,10 @@ const BusinessPage = () => {
   return (
     <div
       className="min-h-screen w-full"
-      style={{ background: "transparent", fontFamily: `'Inter','Poppins','Segoe UI',Arial,sans-serif` }}
+      style={{
+        background: "transparent",
+        fontFamily: `'Inter','Poppins','Segoe UI',Arial,sans-serif`,
+      }}
     >
       <StickyLogoNavbar />
 
@@ -635,25 +683,37 @@ const BusinessPage = () => {
         {/* Analytics */}
         <div className="w-full mt-2 mb-4 sm:mb-8 grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           <MostMentionedWordsCard reviews={business.reviews} />
-          <RightAnalyticsTabs numReviewers={referralMeta.numReviewers} sentimentScore={sentimentScore} />
+          <RightAnalyticsTabs
+            numReviewers={referralMeta.numReviewers}
+            sentimentScore={sentimentScore}
+          />
         </div>
 
         {/* Reviews */}
-        <div className="rounded-2xl p-4" style={{ background: "transparent", borderColor: "transparent" }}>
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: "transparent", borderColor: "transparent" }}
+        >
           <div className="flex gap-6 mb-6 text-base font-semibold border-b border-white/30">
-            <span className="pb-2 -mb-[2px] px-1 text-white border-b-2 border-white">Reviews</span>
+            <span className="pb-2 -mb-[2px] px-1 text-white border-b-2 border-white">
+              Reviews
+            </span>
           </div>
 
           {loading ? (
             <div className="text-center text-white/80 py-8">Loading reviews…</div>
           ) : business.reviews.length === 0 ? (
-            <div className="text-center text-white/90 py-8">No reviews found for this business.</div>
+            <div className="text-center text-white/90 py-8">
+              No reviews found for this business.
+            </div>
           ) : (
             <>
               <div className="space-y-7">
-                {(showAllReviews ? business.reviews : business.reviews.slice(0, 5)).map((review, idx) => (
-                  <ReviewCard key={idx} review={review} />
-                ))}
+                {(showAllReviews ? business.reviews : business.reviews.slice(0, 5)).map(
+                  (review, idx) => (
+                    <ReviewCard key={idx} review={review} />
+                  )
+                )}
               </div>
               {business.reviews.length > 5 && (
                 <div className="flex justify-center mt-6">
