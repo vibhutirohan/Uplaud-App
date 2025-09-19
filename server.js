@@ -1,5 +1,6 @@
 // server.js — Uplaud backend (ESM)
-// Run: node server.js  (package.json should have { "type": "module" })
+// Run locally: node server.js
+// Deploy on Vercel: export default app (used by /api/index.js function)
 
 import express from "express";
 import cors from "cors";
@@ -19,13 +20,14 @@ const REVIEWS_TABLE =
 const CIRCLES_TABLE =
   process.env.AIRTABLE_CIRCLES_TABLE || process.env.CIRCLES_TABLE_ID;
 const USERS_TABLE =
-  process.env.AIRTABLE_USERS_TABLE || process.env.USERS_TABLE_ID;
+  process.env.AIRTABLE_USERS_TABLE || process.env.USERS_TABLE_ID; // (unused here, but logged)
 
 const app = express();
 
+/* ===================== Middleware ===================== */
 app.use(
   cors({
-    origin: true,
+    origin: true, // allow same-origin & dev
     credentials: true,
   })
 );
@@ -53,6 +55,7 @@ const slugify = (s = "") =>
 
 const AT_HEADERS = API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {};
 
+// Generic Airtable list with pagination
 async function airtableList(tableId, params = {}) {
   if (!API_KEY) throw new Error("Missing AIRTABLE_API_KEY");
   if (!BASE_ID) throw new Error("Missing AIRTABLE_BASE_ID");
@@ -61,10 +64,13 @@ async function airtableList(tableId, params = {}) {
   let records = [];
   let offset;
   do {
-    const resp = await axios.get(`https://api.airtable.com/v0/${BASE_ID}/${tableId}`, {
-      headers: AT_HEADERS,
-      params: { pageSize: 100, ...params, ...(offset ? { offset } : {}) },
-    });
+    const resp = await axios.get(
+      `https://api.airtable.com/v0/${BASE_ID}/${tableId}`,
+      {
+        headers: AT_HEADERS,
+        params: { pageSize: 100, ...params, ...(offset ? { offset } : {}) },
+      }
+    );
     const page = Array.isArray(resp.data?.records) ? resp.data.records : [];
     records = records.concat(page);
     offset = resp.data?.offset;
@@ -73,6 +79,7 @@ async function airtableList(tableId, params = {}) {
   return records;
 }
 
+// Formula that mirrors FE slugify: LOWER(REGEX_REPLACE(field, "[^A-Za-z0-9]+", "-"))
 function slugMatchFormula(fieldName, slug) {
   const safeSlug = String(slug).toLowerCase().replace(/"/g, '\\"');
   return `LOWER(REGEX_REPLACE({${fieldName}},"[^A-Za-z0-9]+","-"))="${safeSlug}"`;
@@ -89,14 +96,18 @@ app.post("/api/send-otp", (req, res) => {
   const { phone } = req.body || {};
   const digits = String(phone || "").replace(/\D/g, "");
   if (digits.length < 10) {
-    return res.status(400).json({ success: false, error: "Invalid phone number" });
+    return res
+      .status(400)
+      .json({ success: false, error: "Invalid phone number" });
   }
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStore.set(digits, otp);
-  console.log(`🔐 OTP for ${digits} is ${otp} (dev only — do not log in prod)`);
+  console.log(
+    `🔐 OTP for ${digits} is ${otp} (dev only — NEVER return or log this in prod)`
+  );
   return res.json({
     success: true,
-    otp, // DEV ONLY — never return OTP in production
+    otp, // DEV ONLY — do not send back in production
     message: "OTP generated successfully.",
   });
 });
@@ -122,11 +133,13 @@ app.post("/api/verify-otp", (req, res) => {
 /* ===================== API: Reviews ===================== */
 /**
  * GET /api/reviews?businessSlug=:slug[&debug=1]
+ * Returns: { reviews: [{ user,uplaud,date,score,location,category,businessName }] }
  */
 app.get("/api/reviews", async (req, res) => {
   try {
     const { businessSlug, debug } = req.query;
-    if (!businessSlug) return res.status(400).json({ error: "businessSlug required" });
+    if (!businessSlug)
+      return res.status(400).json({ error: "businessSlug required" });
 
     const slug = String(businessSlug).toLowerCase();
 
@@ -140,7 +153,11 @@ app.get("/api/reviews", async (req, res) => {
       "Category",
     ];
     const filterByFormula = slugMatchFormula("business_name", slug);
-    const records = await airtableList(REVIEWS_TABLE, { fields, filterByFormula });
+
+    const records = await airtableList(REVIEWS_TABLE, {
+      fields,
+      filterByFormula,
+    });
 
     const reviews = records
       .map((r) => r.fields || {})
@@ -148,8 +165,9 @@ app.get("/api/reviews", async (req, res) => {
       .filter((f) => slugify(f.business_name) === slug)
       .map((f) => ({
         user:
-          (Array.isArray(f["Name_Creator"]) ? f["Name_Creator"][0] : f["Name_Creator"]) ||
-          "Anonymous",
+          (Array.isArray(f["Name_Creator"])
+            ? f["Name_Creator"][0]
+            : f["Name_Creator"]) || "Anonymous",
         uplaud: f["Uplaud"] || "",
         date: f["Date_Added"] || null,
         score: typeof f["Uplaud Score"] === "number" ? f["Uplaud Score"] : null,
@@ -170,38 +188,34 @@ app.get("/api/reviews", async (req, res) => {
   }
 });
 
-/* ===================== API: Circles (no unknown fields) ===================== */
+/* ===================== API: Circles ===================== */
 /**
  * GET /api/circles?businessSlug=:slug[&debug=1]
  *
- * We deliberately DO NOT request Optional fields like 'ReferralStatus'/'ReviewStatus'
- * to avoid UNKNOWN_FIELD_NAME errors. We only read the fields your UI needs.
- * We also map Airtable's record.createdTime to Date_Added.
+ * We avoid UNKNOWN_FIELD_NAME by not passing a 'fields' array.
+ * We also expose record.createdTime as Date_Added for the frontend.
  */
 app.get("/api/circles", async (req, res) => {
   try {
     const { businessSlug, debug } = req.query;
-    if (!businessSlug) return res.status(400).json({ error: "businessSlug required" });
+    if (!businessSlug)
+      return res.status(400).json({ error: "businessSlug required" });
 
     const slug = String(businessSlug).toLowerCase();
-
-    // Only filter; don't pass a 'fields' array so Airtable won't error on unknown names.
     const filterByFormula = slugMatchFormula("Business_Name", slug);
+
     const records = await airtableList(CIRCLES_TABLE, { filterByFormula });
 
     const circles = records
-      .map((r) => ({
-        ...r.fields,
-        _createdTime: r.createdTime,
-      }))
+      .map((r) => ({ ...r.fields, _createdTime: r.createdTime }))
       .filter((f) => f["Business_Name"])
       .filter((f) => slugify(f["Business_Name"]) === slug)
       .map((f) => ({
         Initiator: f["Initiator"],
         Receiver: f["Receiver"],
         Business_Name: f["Business_Name"],
-        Date_Added: f["_createdTime"] || null, // we expose createdTime as Date_Added for frontend
-        // If you ever add these fields in Airtable, you can safely surface them here:
+        Date_Added: f["_createdTime"] || null, // expose createdTime as Date_Added
+        // Add these later only if fields exist in Airtable:
         // ReferralStatus: f["ReferralStatus"] ?? null,
         // ReviewStatus: f["ReviewStatus"] ?? null,
       }));
@@ -225,7 +239,13 @@ app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
 });
 
-/* ===================== Start ===================== */
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+/* ===================== Export & Local Start ===================== */
+// Export the Express app for Vercel Serverless function
+export default app;
+
+// Only listen when running locally (not on Vercel)
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+  });
+}
