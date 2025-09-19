@@ -23,12 +23,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-/* ===================== Airtable Config ===================== */
-const API_KEY =
-  "patZS8GyNhkwoP4wY.2beddc214f4dd2a5e4c220ae654f62652a5e02a47bae2287c54fced7bb97c07e";
-const BASE_ID = "appFUJWWTaoJ3YiWt";
-const REVIEWS_TABLE = "tblef0n1hQXiKPHxI";
-
 /* ===================== Sticky Logo Navbar (same as Profile) ===================== */
 function StickyLogoNavbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -434,7 +428,7 @@ const ReviewCardLocal = ({ review }: any) => {
             {review.businessName}
           </Link>
 
-        {/* Desktop meta (transparent share) */}
+          {/* Desktop meta (transparent share) */}
           <div className="hidden sm:flex items-center gap-3 sm:ml-auto">
             {review.score ? (
               <span className="flex items-center leading-none">
@@ -534,31 +528,24 @@ const Dashboard = () => {
           return;
         }
 
-        const filterFormula = `({ReviewerPhoneNumber} = '${phone}')`;
-        const url = `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}?filterByFormula=${encodeURIComponent(
-          filterFormula
-        )}`;
-        const { data } = await axios.get(url, {
-          headers: { Authorization: `Bearer ${API_KEY}` },
+        // ===== Fetch reviews from your backend (no Airtable PAT in the browser) =====
+        // Expected response shape:
+        // { reviews: [{ businessName, uplaud, score, category, date, shareLink, referralLink, raw: { Name_Creator, Reviewer, Gender, City, State, "Creator Image", "Autogen Invite", Internal } }] }
+        const { data } = await axios.get("/api/reviews", {
+          params: { reviewerPhone: phone },
         });
 
-        const records = (data.records || [])
-          .map((rec: any) => {
-            const f = rec.fields || {};
-            return {
-              businessName: f.business_name || f.businessName,
-              uplaud: f.Uplaud || f.uplaud,
-              score:
-                typeof f["Uplaud Score"] === "number"
-                  ? f["Uplaud Score"]
-                  : Number(f.score || 0),
-              category: f.Category || "Other",
-              date: f.Date_Added ? new Date(f.Date_Added) : null,
-              shareLink: f["Share Link"] || "",
-              referralLink: f["ReferralLink"] || f["Referral Link"] || "",
-              raw: f,
-            };
-          })
+        const records = (data?.reviews || [])
+          .map((f: any) => ({
+            businessName: f.businessName,
+            uplaud: f.uplaud,
+            score: typeof f.score === "number" ? f.score : Number(f.score || 0),
+            category: f.category || "Other",
+            date: f.date ? new Date(f.date) : null,
+            shareLink: f.shareLink || "",
+            referralLink: f.referralLink || "",
+            raw: f.raw || {},
+          }))
           .filter((r: any) => r.businessName && r.uplaud)
           .sort((a: any, b: any) => {
             if (!a.date) return 1;

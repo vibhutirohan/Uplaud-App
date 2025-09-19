@@ -15,13 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 
-/* ===================== Airtable Config ===================== */
-const API_KEY =
-  "patgat0IYY3MEpP0E.07c83079a93fcb0f6020e201ae6295542be839697d3eaa107f920a2395abdd6a";
-const BASE_ID = "appFUJWWTaoJ3YiWt";
-const REVIEWS_TABLE = "tblef0n1hQXiKPHxI";
-const CIRCLES_TABLE = "tbldL8H5T4qYKUzLV";
-
 /* ===================== Utils ===================== */
 function slugify(name = "") {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
@@ -287,7 +280,6 @@ function BusinessHeader({
   };
   const showCity = isValidCity(city);
 
-  // Colorful stat pills (match Profile look) but sized like the badges for uniform height
   const Pill = ({
     bg,
     ring,
@@ -322,15 +314,12 @@ function BusinessHeader({
         borderColor: "rgba(255,255,255,0.6)",
       }}
     >
-      {/* Left: title & chips */}
       <div className="flex-1 min-w-0 w-full">
         <div className="flex items-start justify-between gap-3">
-          {/* Full name on all breakpoints (wraps) */}
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-black tracking-tight break-words whitespace-normal">
             {name}
           </h1>
 
-          {/* Mobile share (next to title) */}
           <button
             onClick={onShare}
             className="sm:hidden shrink-0 inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white/80 p-2 shadow"
@@ -355,7 +344,6 @@ function BusinessHeader({
             </Badge>
           )}
 
-          {/* Colorful stat pills (uniform size with the badges) */}
           <Pill
             bg="bg-amber-50"
             ring="ring-1 ring-amber-200"
@@ -374,7 +362,6 @@ function BusinessHeader({
           />
         </div>
 
-        {/* Mobile: show Claim button under the chips */}
         <div className="sm:hidden mt-4">
           <Button
             variant="outline"
@@ -386,7 +373,6 @@ function BusinessHeader({
         </div>
       </div>
 
-      {/* Desktop: share above claim */}
       <div className="hidden sm:flex flex-col items-end gap-2">
         <button
           onClick={onShare}
@@ -433,54 +419,23 @@ const BusinessPage = () => {
     async function fetchData() {
       setLoading(true);
       try {
-        // Reviews
-        let allReviews: any[] = [];
-        let offset: string | undefined = undefined;
-        do {
-          const params: any = { pageSize: 100, offset };
-          const revResp = await axios.get(
-            `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
-            {
-              headers: { Authorization: `Bearer ${API_KEY}` },
-              params,
-            }
-          );
-          allReviews = allReviews.concat(revResp.data.records);
-          offset = revResp.data.offset;
-        } while (offset);
+        // ===== Reviews (via server) =====
+        const { data: rev } = await axios.get("/api/reviews", {
+          params: { businessSlug: slug },
+        });
+        const rawReviews = Array.isArray(rev?.reviews) ? rev.reviews : [];
 
-        const filtered = allReviews
-          .filter((r: any) => slugify(r.fields.business_name || "") === slug)
-          .map((r: any) => {
-            const rawCity = r.fields["City"];
-            const safeCity =
-              typeof rawCity === "string"
-                ? rawCity.trim()
-                : Array.isArray(rawCity)
-                ? String(rawCity[0] || "").trim()
-                : "";
-            let userName = "";
-            if (typeof r.fields["Name_Creator"] === "string" && r.fields["Name_Creator"].trim() !== "") {
-              userName = r.fields["Name_Creator"];
-            } else if (typeof r.fields["Reviewer"] === "string" && r.fields["Reviewer"].trim() !== "") {
-              userName = r.fields["Reviewer"];
-            } else if (Array.isArray(r.fields["Name_Creator"]) && r.fields["Name_Creator"][0]) {
-              userName = r.fields["Name_Creator"][0];
-            } else if (Array.isArray(r.fields["Reviewer"]) && r.fields["Reviewer"][0]) {
-              userName = r.fields["Reviewer"][0];
-            } else {
-              userName = "Anonymous";
-            }
-            return {
-              user: userName,
-              uplaud: r.fields["Uplaud"] || "",
-              date: r.fields["Date_Added"] ? new Date(r.fields["Date_Added"]) : null,
-              score: typeof r.fields["Uplaud Score"] === "number" ? r.fields["Uplaud Score"] : null,
-              location: safeCity,
-              category: r.fields["Category"] || "",
-              business_name: r.fields.business_name || "",
-            };
-          });
+        const filtered = rawReviews
+          .map((r: any) => ({
+            user: r.user || "Anonymous",
+            uplaud: r.uplaud || "",
+            date: r.date ? new Date(r.date) : null,
+            score: typeof r.score === "number" ? r.score : null,
+            location: r.location || "",
+            category: r.category || "",
+            business_name: r.businessName || "",
+          }))
+          .filter((r: any) => r.business_name && r.uplaud);
 
         // Sentiment
         let computedSentiment = 0;
@@ -489,29 +444,15 @@ const BusinessPage = () => {
           computedSentiment = Math.round((totalStars / (filtered.length * 5)) * 100);
         }
 
-        // Referrals
-        let allReferrals: any[] = [];
-        let refOffset: string | undefined = undefined;
-        do {
-          const params: any = { pageSize: 100, offset: refOffset };
-          const circlesResp = await axios.get(
-            `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
-            {
-              headers: { Authorization: `Bearer ${API_KEY}` },
-              params,
-            }
-          );
-          allReferrals = allReferrals.concat(circlesResp.data.records);
-          refOffset = circlesResp.data.offset;
-        } while (refOffset);
-
-        const referralsForBusiness = allReferrals.filter(
-          (r: any) => slugify(r.fields.business_name || "") === slug
-        );
+        // ===== Referrals (via server) =====
+        const { data: circ } = await axios.get("/api/circles", {
+          params: { businessSlug: slug },
+        });
+        const circles = Array.isArray(circ?.circles) ? circ.circles : [];
 
         const initiatorSet = new Set<string>();
-        referralsForBusiness.forEach((r: any) => {
-          if (r.fields["Initiator"]) initiatorSet.add(r.fields["Initiator"]);
+        circles.forEach((c: any) => {
+          if (c?.Initiator) initiatorSet.add(c.Initiator);
         });
 
         const reviewersSet = new Set<string>();
@@ -521,12 +462,14 @@ const BusinessPage = () => {
 
         const numReferrals = initiatorSet.size;
         const numReviewers = reviewersSet.size;
-
-        const firstCity = filtered.find((r: any) => isValidCity(r.location))?.location?.trim() || "";
+        const firstCity =
+          filtered.find((r: any) => isValidCity(r.location))?.location?.trim() || "";
 
         setReferralMeta({ numReferrals, numReviewers });
         setBusiness({
-          name: filtered[0]?.business_name || (slug ? slug.replace(/-/g, " ") : ""),
+          name:
+            filtered[0]?.business_name ||
+            (slug ? slug.replace(/-/g, " ") : ""),
           city: firstCity,
           category: filtered[0]?.category || "",
           reviews: filtered,

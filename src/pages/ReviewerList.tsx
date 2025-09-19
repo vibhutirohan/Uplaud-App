@@ -6,12 +6,39 @@ import { Crown, Medal, Award, MessageCircle, ArrowLeft } from "lucide-react";
 /* ===================== Theme / Airtable ===================== */
 const PRIMARY = "#6214a8";
 const MINT = "#5EEAD4";
+
 const API_KEY =
   "patZS8GyNhkwoP4wY.2beddc214f4dd2a5e4c220ae654f62652a5e02a47bae2287c54fced7bb97c07e";
 const BASE_ID = "appFUJWWTaoJ3YiWt";
 const REVIEWS_TABLE = "tblef0n1hQXiKPHxI";
 const CIRCLES_TABLE = "tbldL8H5T4qYKUzLV";
 
+const AIRTABLE = axios.create({
+  baseURL: `https://api.airtable.com/v0/${BASE_ID}/`,
+  headers: { Authorization: `Bearer ${API_KEY}` },
+});
+
+/** Generic, safe Airtable paginator */
+async function fetchAllPages<T = any>(
+  table: string,
+  params: Record<string, any> = {}
+): Promise<T[]> {
+  const out: T[] = [];
+  let offset: string | undefined = undefined;
+  let guard = 0;
+  do {
+    const resp = await AIRTABLE.get(table, {
+      params: { ...params, pageSize: 100, offset },
+    });
+    const recs = resp.data?.records || [];
+    out.push(...recs);
+    offset = resp.data?.offset;
+    guard++;
+  } while (offset && guard < 100);
+  return out;
+}
+
+/* ===================== Company users (excluded from leaderboard) ===================== */
 const COMPANY_USERS = [
   "Deepthi Rao",
   "Deepthi",
@@ -37,7 +64,6 @@ function StickyLogoNavbar() {
   }, []);
 
   const goBack = () => {
-    // If there is no meaningful history entry, fall back to home.
     if (window.history.length > 1) navigate(-1);
     else navigate("/");
   };
@@ -66,10 +92,10 @@ function StickyLogoNavbar() {
 
 /* ===================== Utils ===================== */
 function isValidName(name = "") {
-  return /^[a-zA-Z][a-zA-Z\s\-'.]{1,49}$/.test(name.trim());
+  return /^[a-zA-Z][a-zA-Z\s\-'.]{1,49}$/.test((name || "").trim());
 }
 function slugify(name = "") {
-  return name
+  return (name || "")
     .normalize("NFKD")
     .replace(/[\u0300-\u036F]/g, "")
     .replace(/[\s]+/g, "-")
@@ -77,60 +103,23 @@ function slugify(name = "") {
     .replace(/^-+|-+$/g, "")
     .toLowerCase();
 }
+function toDateOnlyISO(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
 function getPeriodFilter(period: "weekly" | "monthly" | "all-time") {
-  const now = new Date();
   if (period === "weekly") {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
-    return `IS_AFTER({Date_Added}, '${start.toISOString().slice(0, 10)}')`;
+    const start = new Date();
+    start.setDate(start.getDate() - 6);
+    return `IS_AFTER({Date_Added}, '${toDateOnlyISO(start)}')`;
   } else if (period === "monthly") {
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
-    return `IS_AFTER({Date_Added}, '${start.toISOString().slice(0, 10)}')`;
+    const start = new Date();
+    start.setDate(start.getDate() - 29);
+    return `IS_AFTER({Date_Added}, '${toDateOnlyISO(start)}')`;
   }
-  return "";
+  return ""; // all-time
 }
 
-const fetchFilteredAirtableReviews = async (period: "weekly" | "monthly" | "all-time") => {
-  let allRecords: any[] = [];
-  let offset: string | undefined = undefined;
-  const filterByFormula = getPeriodFilter(period);
-  try {
-    do {
-      const params: any = { pageSize: 100 };
-      if (offset) params.offset = offset;
-      if (filterByFormula) params.filterByFormula = filterByFormula;
-      params.fields = ["ID (from Creator)", "Name_Creator", "Date_Added"];
-      const resp = await axios.get(
-        `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
-        { headers: { Authorization: `Bearer ${API_KEY}` }, params }
-      );
-      allRecords = allRecords.concat(resp.data.records);
-      offset = resp.data.offset;
-    } while (offset);
-    return allRecords;
-  } catch {
-    return [];
-  }
-};
-
-const fetchAllAirtableCircles = async () => {
-  let allRecords: any[] = [];
-  let offset: string | undefined = undefined;
-  try {
-    do {
-      const params: any = { pageSize: 100 };
-      if (offset) params.offset = offset;
-      const resp = await axios.get(
-        `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
-        { headers: { Authorization: `Bearer ${API_KEY}` }, params }
-      );
-      allRecords = allRecords.concat(resp.data.records);
-      offset = resp.data.offset;
-    } while (offset);
-    return allRecords;
-  } catch {
-    return [];
-  }
-};
+type PeriodKey = "weekly" | "monthly" | "all-time";
 
 const periodTabs = [
   { key: "weekly", label: "This Week" },
@@ -155,14 +144,30 @@ const getRankIcon = (rank: number) => {
   }
 };
 
+/* ===================== Airtable fetchers (refactored) ===================== */
+async function fetchFilteredReviews(period: PeriodKey) {
+  const filterByFormula = getPeriodFilter(period);
+  const params: Record<string, any> = {
+    fields: ["ID (from Creator)", "Name_Creator", "Date_Added"],
+  };
+  if (filterByFormula) params.filterByFormula = filterByFormula;
+  return fetchAllPages<any>(REVIEWS_TABLE, params);
+}
+
+async function fetchAllCircles() {
+  // Pull all; if you add period filtering later, mirror the reviews approach
+  return fetchAllPages<any>(CIRCLES_TABLE, {});
+}
+
 /* ===================== Page ===================== */
 const Leaderboard = () => {
   const [topUsers, setTopUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
   const defaultPeriod = () =>
-    (localStorage.getItem("leaderboardPeriod") as "weekly" | "monthly" | "all-time") ||
-    "weekly";
-  const [period, setPeriod] = useState<"weekly" | "monthly" | "all-time">(defaultPeriod());
+    (localStorage.getItem("leaderboardPeriod") as PeriodKey) || "weekly";
+  const [period, setPeriod] = useState<PeriodKey>(defaultPeriod());
+
   const navigate = useNavigate();
   const intervalRef = useRef<any>(null);
 
@@ -180,26 +185,31 @@ const Leaderboard = () => {
     setLoading(true);
     try {
       const [reviews, circles] = await Promise.all([
-        fetchFilteredAirtableReviews(period),
-        fetchAllAirtableCircles(),
+        fetchFilteredReviews(period),
+        fetchAllCircles(),
       ]);
 
       const userMap: Record<number, any> = {};
       const reviewedUserIds = new Set<number>();
+      const companyLower = COMPANY_USERS.map((u) => u.toLowerCase());
 
-      reviews.forEach((r: any) => {
-        const idArr = r.fields["ID (from Creator)"];
-        const nameArr = r.fields["Name_Creator"];
-        const dateStr = r.fields["Date_Added"];
-        const id = Array.isArray(idArr) ? idArr[0] : idArr;
-        const name = Array.isArray(nameArr) ? nameArr[0] : nameArr;
+      // Aggregate reviews
+      for (const r of reviews) {
+        // Airtable can return arrays for lookup/rollup fields; normalize
+        const idRaw = r.fields?.["ID (from Creator)"];
+        const nameRaw = r.fields?.["Name_Creator"];
+        const dateStr = r.fields?.["Date_Added"];
+
+        const id = Array.isArray(idRaw) ? idRaw[0] : idRaw;
+        const name = Array.isArray(nameRaw) ? nameRaw[0] : nameRaw;
         const reviewDate = dateStr ? new Date(dateStr) : null;
 
         if (
           typeof id === "number" &&
           typeof name === "string" &&
-          reviewDate &&
-          !COMPANY_USERS.map((u) => u.toLowerCase()).includes(name.toLowerCase()) &&
+          reviewDate instanceof Date &&
+          !isNaN(reviewDate.getTime()) &&
+          !companyLower.includes(name.toLowerCase()) &&
           isValidName(name)
         ) {
           reviewedUserIds.add(id);
@@ -219,39 +229,47 @@ const Leaderboard = () => {
             }
           }
         }
-      });
+      }
 
-      circles.forEach((rec: any) => {
-        const initiator = rec.fields["Initiator"];
-        const receiver = rec.fields["Receiver"];
+      // Aggregate referrals
+      for (const rec of circles) {
+        const initiator = rec.fields?.["Initiator"];
+        const receiver = rec.fields?.["Receiver"];
+
+        // These may be numbers or arrays of numbers — normalize
+        const initiatorId = Array.isArray(initiator) ? initiator[0] : initiator;
+        const receiverId = Array.isArray(receiver) ? receiver[0] : receiver;
+
         if (
-          typeof initiator === "number" &&
-          typeof receiver === "number" &&
-          reviewedUserIds.has(receiver)
+          typeof initiatorId === "number" &&
+          typeof receiverId === "number" &&
+          reviewedUserIds.has(receiverId)
         ) {
-          if (!userMap[initiator]) {
-            userMap[initiator] = {
-              creatorId: initiator,
-              creatorName: `User ${initiator}`,
+          if (!userMap[initiatorId]) {
+            userMap[initiatorId] = {
+              creatorId: initiatorId,
+              creatorName: `User ${initiatorId}`,
               reviewCount: 0,
               referralCount: 1,
               points: 0,
               latestDate: new Date("2024-01-01T00:00:00"),
             };
           } else {
-            userMap[initiator].referralCount += 1;
+            userMap[initiatorId].referralCount += 1;
           }
         }
-      });
+      }
 
+      // Compute points
       Object.values(userMap).forEach((user: any) => {
         user.points = user.reviewCount * 10 + user.referralCount * 20;
       });
 
+      // Sort: points desc, then reviewCount desc, then latestDate desc
       const sorted = Object.values(userMap).sort((a: any, b: any) => {
         if (b.points !== a.points) return b.points - a.points;
         if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
-        return b.latestDate.getTime() - a.latestDate.getTime();
+        return (b.latestDate?.getTime?.() || 0) - (a.latestDate?.getTime?.() || 0);
       });
 
       setTopUsers(sorted.slice(0, 5));
@@ -262,7 +280,7 @@ const Leaderboard = () => {
     }
   };
 
-  const handlePeriodChange = (key: "weekly" | "monthly" | "all-time") => {
+  const handlePeriodChange = (key: PeriodKey) => {
     setPeriod(key);
     localStorage.setItem("leaderboardPeriod", key);
   };
@@ -325,11 +343,11 @@ const Leaderboard = () => {
           ) : topUsers.length === 0 ? (
             <div className="text-center text-white/60 py-8 sm:py-10">No reviewers found.</div>
           ) : (
-            topUsers.map((entry, idx) => (
+            topUsers.map((entry: any, idx: number) => (
               <div
                 key={entry.creatorId}
                 onClick={() => navigate(`/profile/${slugify(entry.creatorName)}`)}
-                className={`flex items-center px-3 sm:px-7 py-3 sm:py-6 rounded-2xl border transition-all duration-300 cursor-pointer group bg-white border border-gray-100 leaderboard-card`}
+                className="flex items-center px-3 sm:px-7 py-3 sm:py-6 rounded-2xl border transition-all duration-300 cursor-pointer group bg-white border border-gray-100 leaderboard-card"
                 style={{
                   minHeight: 48,
                   position: "relative",

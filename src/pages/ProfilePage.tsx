@@ -31,37 +31,34 @@ const USERS_TABLE = "tblWIFgwTz3Gn3idV";
 const REVIEWS_TABLE = "tblef0n1hQXiKPHxI";
 const CIRCLES_TABLE = "tbldL8H5T4qYKUzLV";
 
-/* ===================== Sticky Logo Navbar ===================== */
-function StickyLogoNavbar() {
-  const [isScrolled, setIsScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 10);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+/* ===================== HTTP helpers ===================== */
+const AIRTABLE = axios.create({
+  baseURL: `https://api.airtable.com/v0/${BASE_ID}/`,
+  headers: { Authorization: `Bearer ${API_KEY}` },
+});
 
-  return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "bg-[#6214a8]/95 backdrop-blur-sm shadow-md py-2"
-          : "bg-transparent py-4"
-      }`}
-    >
-      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center">
-          <Link to="/" className="flex items-center">
-            <img
-              alt="Uplaud Logo"
-              className="h-10 w-auto object-fill"
-              src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
-            />
-          </Link>
-          <div className="w-10 h-10" />
-        </div>
-      </div>
-    </nav>
-  );
+function escapeAirtableString(v: string) {
+  // Wrap in double quotes and escape embedded double quotes
+  return `"${(v || "").replace(/"/g, '\\"')}"`;
+}
+
+async function fetchAllPages<T = any>(
+  table: string,
+  params: Record<string, any>
+): Promise<T[]> {
+  const out: T[] = [];
+  let offset: string | undefined = undefined;
+  let safety = 0; // avoid infinite loops
+  do {
+    const resp = await AIRTABLE.get(table, {
+      params: { ...params, offset, pageSize: 100 },
+    });
+    const records = resp.data?.records || [];
+    out.push(...records);
+    offset = resp.data?.offset;
+    safety++;
+  } while (offset && safety < 100);
+  return out;
 }
 
 /* ===================== Badges ===================== */
@@ -253,29 +250,22 @@ const last3 = (s = "") => {
   return d.slice(-3).padStart(3, "0");
 };
 async function fetchLast3FromReviews(foundUser: any) {
-  const headers = { Authorization: `Bearer ${API_KEY}` };
-  const byIdParams = {
-    pageSize: 1,
-    filterByFormula: `{ID (from Creator)}="${foundUser.id}"`,
-  };
-  const byNameParams = {
-    pageSize: 1,
-    filterByFormula: `{Name_Creator}="${foundUser.name}"`,
-  };
+  // Try by Creator ID, then by Name
   try {
-    const r1 = await axios.get(
-      `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
-      { headers, params: byIdParams }
-    );
-    let rec = r1.data.records?.[0];
+    const idFormula = `{ID (from Creator)}=${escapeAirtableString(foundUser.id || "")}`;
+    const byId = await fetchAllPages<any>(REVIEWS_TABLE, { filterByFormula: idFormula });
+    let rec = byId[0];
+
     if (!rec) {
-      const r2 = await axios.get(
-        `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
-        { headers, params: byNameParams }
-      );
-      rec = r2.data.records?.[0];
+      const nameFormula = `{Name_Creator}=${escapeAirtableString(foundUser.name || "")}`;
+      const byName = await fetchAllPages<any>(REVIEWS_TABLE, { filterByFormula: nameFormula });
+      rec = byName[0];
     }
-    const phone = rec?.fields?.ReviewerPhoneNumber || rec?.fields?.Phone || "";
+    const phone =
+      rec?.fields?.ReviewerPhoneNumber ||
+      rec?.fields?.Phone ||
+      rec?.fields?.["Reviewer Phone Number"] ||
+      "";
     return last3(phone);
   } catch {
     return "000";
@@ -560,6 +550,39 @@ const ReferralCard = ({ referral }: { referral: ReferralData }) => {
   );
 };
 
+/* ===================== Sticky Logo Navbar ===================== */
+function StickyLogoNavbar() {
+  const [isScrolled, setIsScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? "bg-[#6214a8]/95 backdrop-blur-sm shadow-md py-2"
+          : "bg-transparent py-4"
+      }`}
+    >
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center">
+          <Link to="/" className="flex items-center">
+            <img
+              alt="Uplaud Logo"
+              className="h-10 w-auto object-fill"
+              src="/lovable-uploads/ba7f1f54-2df2-4f44-8af1-522b7ccc0810.png"
+            />
+          </Link>
+          <div className="w-10 h-10" />
+        </div>
+      </div>
+    </nav>
+  );
+}
+
 /* ===================== Page ===================== */
 const ProfilePage = () => {
   const { id } = useParams();
@@ -580,7 +603,7 @@ const ProfilePage = () => {
   const badgeMin = isTouch ? 84 : 128;
 
   useEffect(() => {
-    const fetchUserAndReviews = async () => {
+    async function fetchUserAndReviews() {
       setLoading(true);
       try {
         const idParam = (id || "").trim();
@@ -588,56 +611,46 @@ const ProfilePage = () => {
         const targetBase = m ? m[1] : idParam;
         const targetSuffix = m && m[2] ? m[2] : null;
 
-        // Find user
+        // 1) Find user by slug of Name; then verify canonical with -last3 suffix
         let foundUser: any = null;
-        let userOffset: string | undefined = undefined;
 
-        while (!foundUser) {
-          const userResp = await axios.get(
-            `https://api.airtable.com/v0/${BASE_ID}/${USERS_TABLE}`,
-            {
-              headers: { Authorization: `Bearer ${API_KEY}` },
-              params: { pageSize: 100, offset: userOffset },
-            }
-          );
+        // Pull all users (paged)
+        const users = await fetchAllPages<any>(USERS_TABLE, {});
+        const candidates = users.filter((rec: any) => {
+          const nm = rec.fields?.Name || "";
+          const s = slugify(nm);
+          return s === targetBase || s === idParam; // support /name or /name-123 resolving
+        });
 
-          const candidates = userResp.data.records.filter((rec: any) => {
-            const name = rec.fields.Name || "";
-            return slugify(name) === targetBase || slugify(name) === idParam;
-          });
+        for (const rec of candidates) {
+          const name = rec.fields?.Name || "";
+          const candidate = {
+            id: rec.fields?.ID?.toString(),
+            airtableId: rec.id,
+            name,
+            phone: rec.fields?.Phone || "",
+            image: Array.isArray(rec.fields?.image)
+              ? rec.fields?.image?.[0]?.url
+              : rec.fields?.image,
+            autogenInvite: rec.fields?.["Autogen Invite"] ?? "",
+            bio: rec.fields?.["Bio"] ?? "",
+            location: rec.fields?.["Location"] ?? "",
+            gender: rec.fields?.["Gender"] || "Male",
+          };
 
-          for (const rec of candidates) {
-            const name = rec.fields.Name || "";
-            const candidate = {
-              id: rec.fields.ID?.toString(),
-              airtableId: rec.id,
-              name,
-              phone: rec.fields["Phone"] || "",
-              image: Array.isArray(rec.fields.image)
-                ? rec.fields.image[0]?.url
-                : rec.fields.image,
-              autogenInvite: rec.fields["Autogen Invite"] ?? "",
-              bio: rec.fields["Bio"] ?? "",
-              location: rec.fields["Location"] ?? "",
-              gender: rec.fields["Gender"] || "Male",
-            };
-
-            const baseSlug = slugify(name);
-            let l3 = last3(candidate.phone);
-            if (!l3 || l3 === "000") {
-              l3 = await fetchLast3FromReviews({ id: candidate.id, name: candidate.name });
-            }
-            const canonical = `${baseSlug}-${l3 || "000"}`;
-
-            const isExact = targetSuffix ? canonical === idParam : baseSlug === targetBase;
-            if (isExact) {
-              foundUser = { ...candidate, handle: baseSlug, canonicalSlug: canonical };
-              break;
-            }
+          const baseSlug = slugify(name);
+          let l3 = last3(candidate.phone);
+          if (!l3 || l3 === "000") {
+            // If phone not on Users, try Reviews table
+            l3 = await fetchLast3FromReviews({ id: candidate.id, name: candidate.name });
           }
+          const canonical = `${baseSlug}-${l3 || "000"}`;
+          const isExact = targetSuffix ? canonical === idParam : baseSlug === targetBase;
 
-          userOffset = userResp.data.offset;
-          if (!userOffset) break;
+          if (isExact) {
+            foundUser = { ...candidate, handle: baseSlug, canonicalSlug: canonical };
+            break;
+          }
         }
 
         if (foundUser) {
@@ -649,47 +662,29 @@ const ProfilePage = () => {
 
         setUser(foundUser);
 
-        // Reviews
+        // 2) Reviews for user (by Creator ID, then by Name fallback) — fully paged
         let allReviews: any[] = [];
         if (foundUser) {
-          let offset: string | undefined = undefined;
-          do {
-            const params = {
-              pageSize: 100,
-              offset,
-              filterByFormula: `{ID (from Creator)}="${foundUser.id}"`,
-            };
-            const revResp = await axios.get(
-              `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
-              { headers: { Authorization: `Bearer ${API_KEY}` }, params }
-            );
-            allReviews = allReviews.concat(revResp.data.records);
-            offset = revResp.data.offset;
-          } while (offset);
+          const byIdFormula = `{ID (from Creator)}=${escapeAirtableString(foundUser.id || "")}`;
+          const byId = await fetchAllPages<any>(REVIEWS_TABLE, {
+            filterByFormula: byIdFormula,
+          });
+          allReviews = allReviews.concat(byId);
 
           if (allReviews.length === 0) {
-            let nameOffset: string | undefined = undefined;
-            do {
-              const nameParams = {
-                pageSize: 100,
-                offset: nameOffset,
-                filterByFormula: `{Name_Creator}="${foundUser.name}"`,
-              };
-              const nameRevResp = await axios.get(
-                `https://api.airtable.com/v0/${BASE_ID}/${REVIEWS_TABLE}`,
-                { headers: { Authorization: `Bearer ${API_KEY}` }, params: nameParams }
-              );
-              allReviews = allReviews.concat(nameRevResp.data.records);
-              nameOffset = nameRevResp.data.offset;
-            } while (nameOffset);
+            const byNameFormula = `{Name_Creator}=${escapeAirtableString(foundUser.name || "")}`;
+            const byName = await fetchAllPages<any>(REVIEWS_TABLE, {
+              filterByFormula: byNameFormula,
+            });
+            allReviews = allReviews.concat(byName);
           }
 
           const validReviews = allReviews
             .filter(
               (r: any) =>
-                !!r.fields.business_name &&
-                !!r.fields.Uplaud &&
-                typeof r.fields["Uplaud Score"] === "number"
+                !!r.fields?.business_name &&
+                !!r.fields?.Uplaud &&
+                typeof r.fields?.["Uplaud Score"] === "number"
             )
             .map((r: any) => ({
               businessName: r.fields.business_name,
@@ -697,21 +692,21 @@ const ProfilePage = () => {
               date: r.fields.Date_Added ? new Date(r.fields.Date_Added) : null,
               score: r.fields["Uplaud Score"],
               shareLink: r.fields["Share Link"] || "",
-              referralLink: r.fields["ReferralLink"] || "",
+              referralLink: r.fields["ReferralLink"] || r.fields["Referral Link"] || "",
               location: r.fields.City || "",
               category: r.fields.Category || "Other",
             }))
             .sort((a, b) => {
-              if (!a.date) return 1;
-              if (!b.date) return -1;
-              return (b.date?.getTime?.() ?? 0) - (a.date?.getTime?.() ?? 0);
+              const at = a.date ? a.date.getTime() : 0;
+              const bt = b.date ? b.date.getTime() : 0;
+              return bt - at;
             });
           setReviews(validReviews);
         } else {
           setReviews([]);
         }
 
-        // Referrals
+        // 3) Referrals for user (Initiator = user.name), paged, dedup latest per receiver+business
         let unique = new Map<
           string,
           { receiver: string; business: string; status: "clicked" | "reviewed"; date: Date | null }
@@ -719,32 +714,19 @@ const ProfilePage = () => {
         let rawForBadges: any[] = [];
 
         if (foundUser && foundUser.name) {
-          let circles: any[] = [];
-          let offset: string | undefined = undefined;
-          do {
-            const params = {
-              pageSize: 100,
-              offset,
-              filterByFormula: `{Initiator}="${foundUser.name}"`,
-            };
-            const circleResp = await axios.get(
-              `https://api.airtable.com/v0/${BASE_ID}/${CIRCLES_TABLE}`,
-              { headers: { Authorization: `Bearer ${API_KEY}` }, params }
-            );
-            circles = circles.concat(circleResp.data.records);
-            offset = circleResp.data.offset;
-          } while (offset);
+          const circles = await fetchAllPages<any>(CIRCLES_TABLE, {
+            filterByFormula: `{Initiator}=${escapeAirtableString(foundUser.name)}`,
+          });
 
           for (const c of circles) {
-            const receivers = Array.isArray(c.fields["Receiver"])
-              ? c.fields["Receiver"]
-              : [c.fields["Receiver"]];
-            const business = c.fields["Business_Name"] || "";
-            const rawStatus =
-              c.fields["ReviewStatus"] || c.fields["ReferralStatus"] || "Delivered";
+            const receivers = Array.isArray(c.fields?.Receiver)
+              ? c.fields?.Receiver
+              : [c.fields?.Receiver];
+            const business = c.fields?.["Business_Name"] || "";
+            const rawStatus = c.fields?.["ReviewStatus"] || c.fields?.["ReferralStatus"] || "Delivered";
             const status = toReferralStatus(rawStatus);
-            const date: Date | null = c.fields["Date_Added"]
-              ? new Date(c.fields["Date_Added"])
+            const date: Date | null = c.fields?.["Date_Added"]
+              ? new Date(c.fields?.["Date_Added"])
               : null;
 
             for (const r of receivers) {
@@ -778,7 +760,7 @@ const ProfilePage = () => {
             avatarUrl: makeAvatarUrl(item.receiver),
           }));
         setReferralsUI(ui);
-      } catch (err) {
+      } catch {
         setUser(null);
         setReviews([]);
         setReferralCount(0);
@@ -787,7 +769,8 @@ const ProfilePage = () => {
       } finally {
         setLoading(false);
       }
-    };
+    }
+
     if (id) fetchUserAndReviews();
   }, [id, navigate]);
 
@@ -956,6 +939,9 @@ const ProfilePage = () => {
       </>
     );
 
+  // Points totals
+  const totalPoints = points;
+
   return (
     <div
       className="min-h-screen w-full font-sans text-gray-800 relative"
@@ -1057,7 +1043,7 @@ const ProfilePage = () => {
           {/* Stats */}
           <ColoredStatsTabs
             totalReviews={reviews.length}
-            points={points}
+            points={totalPoints}
             referralCount={referralCount}
           />
         </div>
@@ -1160,7 +1146,7 @@ const ProfilePage = () => {
 
                   <div className="text-gray-900 text-sm mb-2">
                     <div>
-                      Total Points: <span className="font-bold">{points}</span>
+                      Total Points: <span className="font-bold">{totalPoints}</span>
                     </div>
                     <div className="text-xs text-gray-600 mt-0.5">
                       (10 points per review, 20 points per successful referral)
